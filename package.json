@@ -20,7 +20,8 @@
     "@actions/core": "^1.10.0",
     "node-fetch": "^3.3.0",
     "semver": "^7.3.8",
-    "unzipper": "^0.10.11"
+    "unzipper": "^0.10.11",
+    "fs-extra": "^11.1.0"
   },
   "type": "module"
 }

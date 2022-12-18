@@ -3,6 +3,8 @@ import fetch from 'node-fetch';
 import { satisfies } from 'semver';
 import { Extract } from 'unzipper';
 import { readFileSync } from "fs";
+import { copySync } from "fs-extra/esm";
+import { join } from "path";
 
 main().then(() => info("Complete!"))
 
@@ -39,7 +41,7 @@ async function main() {
         }
 
         info("Fetching mods for game version '" + version + "'");
-        const mods = await fetchJson("https://beatmods.com/api/v1/mod?gameVersion=" + version);
+        const mods = await fetchJson("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=" + version);
 
         for (let depName of Object.keys(manifest.dependsOn)) {
             const depVersion = manifest.dependsOn[depName];
@@ -49,6 +51,12 @@ async function main() {
                 const depDownload = dependency.downloads.find(x => x.type === "universal").url;
                 info("Downloading mod '" + depName + "' version '" + dependency.version + "'");
                 await download("https://beatmods.com" + depDownload, extractPath);
+
+                // special case since BSIPA moves files at runtime
+                if (depName === "BSIPA") {
+                    copySync(join(extractPath, "IPA", "Libs"), join(extractPath, "Libs"), { overwrite: true });
+                    copySync(join(extractPath, "IPA", "Data"), join(extractPath, "Beat Saber_Data"), { overwrite: true });
+                }
             } else {
                 warning("Mod '" + depName + "' version '" + depVersion + "' not found.");
             }
@@ -65,5 +73,14 @@ async function fetchJson(url) {
 
 async function download(url, extractPath) {
     const response = await fetch(url);
-    await response.body.pipe(Extract({path: extractPath}));
+    const stream = Extract({path: extractPath});
+    const promise = new Promise((resolve) => {
+        stream.on('finish', () => {
+            resolve();
+        });
+    });
+    
+    response.body.pipe(stream);
+
+    return promise;
 }
