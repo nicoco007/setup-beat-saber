@@ -17,6 +17,9 @@ inputs:
     description: Dictionary of dependency id aliases
     required: false
     default: '{}'
+  game-version:
+    description: Game version to use (overrides game version from manifest)
+    required: false
 runs:
   using: node16
   main: main.js

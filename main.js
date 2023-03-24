@@ -32,12 +32,13 @@ async function main() {
         const manifest = JSON.parse(manifestStringData);
         info("Retrieved manifest of '" + manifest.id + "' version '" + manifest.version + "'");
 
+        const wantedGameVersion = getInput("game-version", { required: false }) || manifest.gameVersion;
         const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
         const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json");
 
-        const version = gameVersions.find(x => x === manifest.gameVersion || versionAliases[x].some(y => y === manifest.gameVersion));
+        const version = gameVersions.find(x => x === wantedGameVersion || versionAliases[x].some(y => y === wantedGameVersion));
         if (version == null) {
-            throw new Error("Game version '" + manifest.gameVersion + "' doesn't exist.");
+            throw new Error("Game version '" + wantedGameVersion + "' doesn't exist.");
         }
 
         info("Fetching mods for game version '" + version + "'");
