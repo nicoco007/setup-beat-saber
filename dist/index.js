@@ -34914,13 +34914,20 @@ if (external_process_namespaceObject.env.NODE_ENV != "test") {
 async function main() {
     const manifestPath = (0,core.getInput)("manifest");
     const extractPath = (0,core.getInput)("path");
-    const rawAliases = (0,core.getInput)("aliases");
 
-    const depAliases = JSON.parse(rawAliases || null) || {};
+    const depAliases = JSON.parse((0,core.getInput)("aliases") || null) || {};
 
     if (depAliases != {}) {
         Object.entries(depAliases).forEach(([key, value]) => {
             (0,core.info)(`Given alias '${key}': '${value}'`);
+        });
+    }
+
+    const additionalDependencies = JSON.parse((0,core.getInput)("additional-dependencies") || null) || {};
+
+    if (additionalDependencies != {}) {
+        Object.entries(additionalDependencies).forEach(([key, value]) => {
+            (0,core.info)(`Given additional dependency '${key}' @ '${value}'`);
         });
     }
 
@@ -34945,7 +34952,7 @@ async function main() {
     (0,core.info)("Fetching mods for game version '" + version + "'");
     const mods = await fetchJson("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=" + version);
 
-    for (const [depName, depVersion] of Object.entries(manifest.dependsOn)) {
+    for (const [depName, depVersion] of Object.entries({ ...manifest.dependsOn, ...additionalDependencies })) {
         const dependency = mods.find(x => (x.name === depName || x.name == depAliases[depName]) && (0,semver.satisfies)(x.version, depVersion));
 
         if (dependency != null) {

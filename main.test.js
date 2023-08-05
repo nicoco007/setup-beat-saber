@@ -37,6 +37,11 @@ function mockFetch(url, body, status = 200) {
 
 describe("main", () => {
     beforeEach(() => {
+        delete process.env["INPUT_MANIFEST"];
+        delete process.env["INPUT_PATH"];
+        delete process.env["INPUT_ALIASES"];
+        delete process.env["INPUT_ADDITIONAL-DEPENDENCIES"];
+
         fetch.withArgs(sinon.match(/https:\/\/beatmods.com\/uploads\/.*/)).callsFake(() =>
             new nf.Response(
                 createReadStream(path.join(__dirname, "tests", "dummy.zip")),
@@ -59,6 +64,7 @@ describe("main", () => {
 
         await main();
 
+        // this sucks but I'm too lazy to make it better
         expect(core.info).toHaveBeenCalledWith("Retrieved manifest of 'examplemod' version '0.1.0'");
         expect(core.info).toHaveBeenCalledWith("Fetching mods for game version '1.13.2'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'BSIPA' version '4.1.4'");
@@ -92,6 +98,24 @@ describe("main", () => {
         expect(core.info).toHaveBeenCalledWith("Retrieved manifest of 'examplemod' version '0.1.0'");
         expect(core.info).toHaveBeenCalledWith("Fetching mods for game version '1.13.2'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'CustomAvatar' version '5.1.2'");
+    });
+
+    test("downloads additional dependencies", async () => {
+        process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "basic.json");
+        process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
+        process.env["INPUT_ADDITIONAL-DEPENDENCIES"] = JSON.stringify({ "Custom Avatars": "^5.1.0" });
+
+        await main();
+
+        expect(core.info).toHaveBeenCalledWith("Retrieved manifest of 'examplemod' version '0.1.0'");
+        expect(core.info).toHaveBeenCalledWith("Fetching mods for game version '1.13.2'");
+        expect(core.info).toHaveBeenCalledWith("Downloading mod 'BSIPA' version '4.1.4'");
+        expect(core.info).toHaveBeenCalledWith("Downloading mod 'BS Utils' version '1.7.0'");
+        expect(core.info).toHaveBeenCalledWith("Downloading mod 'SongCore' version '3.1.0'");
+        expect(core.info).toHaveBeenCalledWith("Downloading mod 'BeatSaverSharp' version '2.0.0'");
+        expect(core.info).toHaveBeenCalledWith("Downloading mod 'BeatSaberMarkupLanguage' version '1.4.5'");
+        expect(core.info).toHaveBeenCalledWith("Downloading mod 'SiraUtil' version '2.5.1'");
+        expect(core.info).toHaveBeenCalledWith("Downloading mod 'Custom Avatars' version '5.1.2'");
     });
 
     test("warns for missing mods", async () => {

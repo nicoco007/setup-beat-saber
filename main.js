@@ -16,13 +16,20 @@ if (env["NODE_ENV"] != "test") {
 export async function main() {
     const manifestPath = getInput("manifest");
     const extractPath = getInput("path");
-    const rawAliases = getInput("aliases");
 
-    const depAliases = JSON.parse(rawAliases || null) || {};
+    const depAliases = JSON.parse(getInput("aliases") || null) || {};
 
     if (depAliases != {}) {
         Object.entries(depAliases).forEach(([key, value]) => {
             info(`Given alias '${key}': '${value}'`);
+        });
+    }
+
+    const additionalDependencies = JSON.parse(getInput("additional-dependencies") || null) || {};
+
+    if (additionalDependencies != {}) {
+        Object.entries(additionalDependencies).forEach(([key, value]) => {
+            info(`Given additional dependency '${key}' @ '${value}'`);
         });
     }
 
@@ -47,7 +54,7 @@ export async function main() {
     info("Fetching mods for game version '" + version + "'");
     const mods = await fetchJson("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=" + version);
 
-    for (const [depName, depVersion] of Object.entries(manifest.dependsOn)) {
+    for (const [depName, depVersion] of Object.entries({ ...manifest.dependsOn, ...additionalDependencies })) {
         const dependency = mods.find(x => (x.name === depName || x.name == depAliases[depName]) && satisfies(x.version, depVersion));
 
         if (dependency != null) {

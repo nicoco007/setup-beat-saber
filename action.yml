@@ -20,6 +20,10 @@ inputs:
   game-version:
     description: Game version to use (overrides game version from manifest)
     required: false
+  additional-dependencies:
+    description: Additional dependencies required for build but not at runtime (e.g. optional dependencies)
+    required: false
+    default: '{}'
 runs:
   using: node16
   main: dist/index.js
