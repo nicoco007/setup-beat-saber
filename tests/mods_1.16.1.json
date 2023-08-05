@@ -1,0 +1,313 @@
+[
+    {
+        "name": "BSIPA",
+        "version": "4.1.6",
+        "gameVersion": "1.16.1",
+        "authorId": "5cd647c3d98de9360548160b",
+        "uploadDate": "2021-05-28T20:12:19.288Z",
+        "updatedDate": "2021-05-29T02:32:30.773Z",
+        "author": {
+            "_id": "5cd647c3d98de9360548160b",
+            "username": "Shadnix",
+            "lastLogin": "2023-03-06T02:13:36.086Z"
+        },
+        "status": "approved",
+        "description": "A mod loader for Beat Saber. Provides a number of useful tools and utilities.",
+        "link": "https://bsmg.github.io/BeatSaber-IPA-Reloaded/index.html",
+        "category": "Core",
+        "downloads": [
+            {
+                "type": "universal",
+                "url": "/uploads/60b14ea32d008b3daa41e8e0/universal/BSIPA-4.1.6.zip",
+                "hashMd5": [
+                    {
+                        "hash": "b04800b9ff6c5375c5ea6aef078f4d09",
+                        "file": "IPA.exe"
+                    },
+                    {
+                        "hash": "80318442d34fd71503d6548b2a9f5490",
+                        "file": "IPA.exe.config"
+                    },
+                    {
+                        "hash": "aa156a789840ef85e6c0fd08b27a18a6",
+                        "file": "IPA/Data/Managed/I18N.dll"
+                    },
+                    {
+                        "hash": "a75f9881a0e9b61ad1d02bdba0406468",
+                        "file": "IPA/Data/Managed/I18N.West.dll"
+                    },
+                    {
+                        "hash": "0301b21c6f248b40e8b55d519eefc715",
+                        "file": "IPA/Data/Managed/IPA.Injector.dll"
+                    },
+                    {
+                        "hash": "66fead2aef2dd6ea8fb62fcb4e1df793",
+                        "file": "IPA/Data/Managed/IPA.Injector.pdb"
+                    },
+                    {
+                        "hash": "1cc46cbd7c09a82136906255830bf383",
+                        "file": "IPA/Data/Managed/IPA.Loader.dll"
+                    },
+                    {
+                        "hash": "00c2860e7a5607c550882aad30e39194",
+                        "file": "IPA/Data/Managed/IPA.Loader.pdb"
+                    },
+                    {
+                        "hash": "81239733ace6be5dcd86128c5cdf869e",
+                        "file": "IPA/Data/Managed/IPA.Loader.xml"
+                    },
+                    {
+                        "hash": "a8f13d4df59ebbcae3d07daaeab739af",
+                        "file": "IPA/Data/Managed/Microsoft.CSharp.dll"
+                    },
+                    {
+                        "hash": "57dd20601187d75a9e367b86e9bc4adf",
+                        "file": "IPA/Data/Managed/Portable.System.ValueTuple.dll"
+                    },
+                    {
+                        "hash": "c739259c418dad08468a4def4c4d1486",
+                        "file": "IPA/Data/Managed/System.Runtime.Serialization.dll"
+                    },
+                    {
+                        "hash": "62e3e1bc898295f839fdb64fe4c59eab",
+                        "file": "IPA/Libs/0Harmony.dll"
+                    },
+                    {
+                        "hash": "6ded8fcbf5f1d9e422b327ca51625e24",
+                        "file": "IPA/Libs/Ionic.Zip.dll"
+                    },
+                    {
+                        "hash": "bda5cf9930c3bb1976c7484c7f280cba",
+                        "file": "IPA/Libs/Mono.Cecil.dll"
+                    },
+                    {
+                        "hash": "df8837d3efdaa1405200f529f06f36b1",
+                        "file": "IPA/Libs/Mono.Cecil.Mdb.dll"
+                    },
+                    {
+                        "hash": "aeff6fb43e6604178e905465463eb546",
+                        "file": "IPA/Libs/Mono.Cecil.Pdb.dll"
+                    },
+                    {
+                        "hash": "b1de908243feac14049ddeefb858ef33",
+                        "file": "IPA/Libs/Mono.Cecil.Rocks.dll"
+                    },
+                    {
+                        "hash": "6815034209687816d8cf401877ec8133",
+                        "file": "IPA/Libs/Newtonsoft.Json.dll"
+                    },
+                    {
+                        "hash": "7581a1faec1b5f935c2c26a4c8ef318c",
+                        "file": "IPA/Libs/SemVer.dll"
+                    },
+                    {
+                        "hash": "a698f41e9f3833562a407edf1b7db66d",
+                        "file": "IPA/winhttp.dll"
+                    }
+                ]
+            }
+        ],
+        "required": true,
+        "dependencies": [],
+        "_id": "60b14ea32d008b3daa41e8e0"
+    },
+    {
+        "name": "SongCore",
+        "version": "3.5.0",
+        "gameVersion": "1.16.1",
+        "authorId": "5ca5739d723eb30bd71900fb",
+        "uploadDate": "2021-06-18T02:02:39.567Z",
+        "updatedDate": "2021-06-25T06:12:56.089Z",
+        "author": {
+            "_id": "5ca5739d723eb30bd71900fb",
+            "username": "Kyle 1413",
+            "lastLogin": "2023-02-25T20:47:11.167Z"
+        },
+        "status": "approved",
+        "description": "A plugin for handling custom songs in Beat Saber.",
+        "link": "https://github.com/Kylemc1413/SongCore",
+        "category": "Core",
+        "downloads": [
+            {
+                "type": "universal",
+                "url": "/uploads/60cbfebfaf1e3d4577e0366e/universal/SongCore-3.5.0.zip",
+                "hashMd5": [
+                    {
+                        "hash": "bdea6d215dc8c7bd509623b863ac663e",
+                        "file": "Plugins/SongCore.dll"
+                    }
+                ]
+            }
+        ],
+        "required": false,
+        "dependencies": [
+            {
+                "_id": "60b15a4b2d008b3daa41e900",
+                "name": "BS Utils",
+                "description": "A basic library for mods to use for common functionality.",
+                "authorId": "5ca5739d723eb30bd71900fb",
+                "version": "1.10.0",
+                "gameVersion": "1.16.1",
+                "link": "https://github.com/Kylemc1413/Beat-Saber-Utils",
+                "updatedDate": "2021-05-29T02:34:15.003Z",
+                "uploadDate": "2021-05-28T21:02:03.945Z",
+                "status": "approved",
+                "downloads": [
+                    {
+                        "type": "universal",
+                        "url": "/uploads/60b15a4b2d008b3daa41e900/universal/BS Utils-1.10.0.zip",
+                        "hashMd5": [
+                            {
+                                "hash": "2d83afd91a74f8a89df3530d92548f9a",
+                                "file": "Plugins/BS_Utils.dll"
+                            }
+                        ]
+                    }
+                ],
+                "category": "Libraries",
+                "required": false,
+                "dependencies": [
+                    "60b14ea32d008b3daa41e8e0",
+                    "60b159582d008b3daa41e8f2"
+                ]
+            },
+            {
+                "_id": "60b1570f2d008b3daa41e8ef",
+                "name": "BeatSaberMarkupLanguage",
+                "description": "An XML based UI system.",
+                "authorId": "5ca59fdb6e53c522fc7f148d",
+                "version": "1.5.3",
+                "gameVersion": "1.16.1",
+                "link": "https://github.com/monkeymanboy/BeatSaberMarkupLanguage",
+                "updatedDate": "2021-05-29T02:34:04.071Z",
+                "uploadDate": "2021-05-28T20:48:15.037Z",
+                "status": "approved",
+                "downloads": [
+                    {
+                        "type": "universal",
+                        "url": "/uploads/60b1570f2d008b3daa41e8ef/universal/BeatSaberMarkupLanguage-1.5.3.zip",
+                        "hashMd5": [
+                            {
+                                "hash": "a125da642193890295f47c92ca6c0890",
+                                "file": "Plugins/BSML.dll"
+                            }
+                        ]
+                    }
+                ],
+                "category": "Libraries",
+                "required": false,
+                "dependencies": [
+                    "60b14ea32d008b3daa41e8e0"
+                ]
+            },
+            {
+                "_id": "60b14ea32d008b3daa41e8e0",
+                "name": "BSIPA",
+                "description": "A mod loader for Beat Saber. Provides a number of useful tools and utilities.",
+                "authorId": "5cd647c3d98de9360548160b",
+                "version": "4.1.6",
+                "gameVersion": "1.16.1",
+                "link": "https://bsmg.github.io/BeatSaber-IPA-Reloaded/index.html",
+                "updatedDate": "2021-05-29T02:32:30.773Z",
+                "uploadDate": "2021-05-28T20:12:19.288Z",
+                "status": "approved",
+                "downloads": [
+                    {
+                        "type": "universal",
+                        "url": "/uploads/60b14ea32d008b3daa41e8e0/universal/BSIPA-4.1.6.zip",
+                        "hashMd5": [
+                            {
+                                "hash": "b04800b9ff6c5375c5ea6aef078f4d09",
+                                "file": "IPA.exe"
+                            },
+                            {
+                                "hash": "80318442d34fd71503d6548b2a9f5490",
+                                "file": "IPA.exe.config"
+                            },
+                            {
+                                "hash": "aa156a789840ef85e6c0fd08b27a18a6",
+                                "file": "IPA/Data/Managed/I18N.dll"
+                            },
+                            {
+                                "hash": "a75f9881a0e9b61ad1d02bdba0406468",
+                                "file": "IPA/Data/Managed/I18N.West.dll"
+                            },
+                            {
+                                "hash": "0301b21c6f248b40e8b55d519eefc715",
+                                "file": "IPA/Data/Managed/IPA.Injector.dll"
+                            },
+                            {
+                                "hash": "66fead2aef2dd6ea8fb62fcb4e1df793",
+                                "file": "IPA/Data/Managed/IPA.Injector.pdb"
+                            },
+                            {
+                                "hash": "1cc46cbd7c09a82136906255830bf383",
+                                "file": "IPA/Data/Managed/IPA.Loader.dll"
+                            },
+                            {
+                                "hash": "00c2860e7a5607c550882aad30e39194",
+                                "file": "IPA/Data/Managed/IPA.Loader.pdb"
+                            },
+                            {
+                                "hash": "81239733ace6be5dcd86128c5cdf869e",
+                                "file": "IPA/Data/Managed/IPA.Loader.xml"
+                            },
+                            {
+                                "hash": "a8f13d4df59ebbcae3d07daaeab739af",
+                                "file": "IPA/Data/Managed/Microsoft.CSharp.dll"
+                            },
+                            {
+                                "hash": "57dd20601187d75a9e367b86e9bc4adf",
+                                "file": "IPA/Data/Managed/Portable.System.ValueTuple.dll"
+                            },
+                            {
+                                "hash": "c739259c418dad08468a4def4c4d1486",
+                                "file": "IPA/Data/Managed/System.Runtime.Serialization.dll"
+                            },
+                            {
+                                "hash": "62e3e1bc898295f839fdb64fe4c59eab",
+                                "file": "IPA/Libs/0Harmony.dll"
+                            },
+                            {
+                                "hash": "6ded8fcbf5f1d9e422b327ca51625e24",
+                                "file": "IPA/Libs/Ionic.Zip.dll"
+                            },
+                            {
+                                "hash": "bda5cf9930c3bb1976c7484c7f280cba",
+                                "file": "IPA/Libs/Mono.Cecil.dll"
+                            },
+                            {
+                                "hash": "df8837d3efdaa1405200f529f06f36b1",
+                                "file": "IPA/Libs/Mono.Cecil.Mdb.dll"
+                            },
+                            {
+                                "hash": "aeff6fb43e6604178e905465463eb546",
+                                "file": "IPA/Libs/Mono.Cecil.Pdb.dll"
+                            },
+                            {
+                                "hash": "b1de908243feac14049ddeefb858ef33",
+                                "file": "IPA/Libs/Mono.Cecil.Rocks.dll"
+                            },
+                            {
+                                "hash": "6815034209687816d8cf401877ec8133",
+                                "file": "IPA/Libs/Newtonsoft.Json.dll"
+                            },
+                            {
+                                "hash": "7581a1faec1b5f935c2c26a4c8ef318c",
+                                "file": "IPA/Libs/SemVer.dll"
+                            },
+                            {
+                                "hash": "a698f41e9f3833562a407edf1b7db66d",
+                                "file": "IPA/winhttp.dll"
+                            }
+                        ]
+                    }
+                ],
+                "category": "Core",
+                "required": true,
+                "dependencies": []
+            }
+        ],
+        "_id": "60cbfebfaf1e3d4577e0366e"
+    }
+]
