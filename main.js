@@ -53,6 +53,7 @@ export async function main() {
 
     info(`Fetching mods for game version '${version}'`);
     const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);
+    let errored = false;
 
     for (const [depName, depVersion] of Object.entries({ ...manifest.dependsOn, ...additionalDependencies })) {
         const dependency = mods.find(x => (x.name === depName || x.name == depAliases[depName]) && satisfies(x.version, depVersion));
@@ -69,7 +70,13 @@ export async function main() {
             }
         } else {
             error(`Mod '${depName}' version '${depVersion}' not found.`);
+            errored = true;
         }
+    }
+
+    if (errored)
+    {
+        throw new Error("Specified mods could not be downloaded.");
     }
 }
 

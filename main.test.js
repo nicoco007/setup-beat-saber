@@ -123,7 +123,9 @@ describe("main", () => {
         process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "nonexistent_mod.json");
         process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
 
-        await main();
+        await expect(main())
+            .rejects
+            .toThrow("Specified mods could not be downloaded.");
 
         expect(core.error).toHaveBeenCalledWith("Mod 'MissingMod' version '^1.0.0' not found.");
     });
@@ -132,7 +134,9 @@ describe("main", () => {
         process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "nonexistent_version.json");
         process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
 
-        await main();
+        await expect(main())
+            .rejects
+            .toThrow("Specified mods could not be downloaded.");
 
         expect(core.error).toHaveBeenCalledWith("Mod 'BeatSaverSharp' version '^2000.0.0' not found.");
     });
