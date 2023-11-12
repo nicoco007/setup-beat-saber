@@ -20,6 +20,7 @@ jest.unstable_mockModule("@actions/core", async () => ({
     __esModule: true,
     info: jest.fn(),
     warning: jest.fn(),
+    error: jest.fn(),
 }))
 
 const { default: fetch } = await import("node-fetch");
@@ -118,22 +119,22 @@ describe("main", () => {
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'Custom Avatars' version '5.1.2'");
     });
 
-    test("warns for missing mods", async () => {
+    test("logs error for missing mods", async () => {
         process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "nonexistent_mod.json");
         process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
 
         await main();
 
-        expect(core.warning).toHaveBeenCalledWith("Mod 'MissingMod' version '^1.0.0' not found.");
+        expect(core.error).toHaveBeenCalledWith("Mod 'MissingMod' version '^1.0.0' not found.");
     });
 
-    test("warns for missing versions", async () => {
+    test("logs error for missing versions", async () => {
         process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "nonexistent_version.json");
         process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
 
         await main();
 
-        expect(core.warning).toHaveBeenCalledWith("Mod 'BeatSaverSharp' version '^2000.0.0' not found.");
+        expect(core.error).toHaveBeenCalledWith("Mod 'BeatSaverSharp' version '^2000.0.0' not found.");
     });
 
     test("warns if manifest has a BOM", async () => {

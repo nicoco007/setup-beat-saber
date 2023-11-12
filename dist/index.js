@@ -34938,7 +34938,7 @@ async function main() {
     }
 
     const manifest = JSON.parse(manifestStringData);
-    (0,core.info)("Retrieved manifest of '" + manifest.id + "' version '" + manifest.version + "'");
+    (0,core.info)(`Retrieved manifest of '${manifest.id}' version '${manifest.version}'`);
 
     const wantedGameVersion = (0,core.getInput)("game-version", { required: false }) || manifest.gameVersion;
     const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
@@ -34946,19 +34946,19 @@ async function main() {
 
     const version = gameVersions.find(x => x === wantedGameVersion || versionAliases[x].some(y => y === wantedGameVersion));
     if (version == null) {
-        throw new Error("Game version '" + wantedGameVersion + "' doesn't exist.");
+        throw new Error(`Game version '${wantedGameVersion}' doesn't exist.`);
     }
 
-    (0,core.info)("Fetching mods for game version '" + version + "'");
-    const mods = await fetchJson("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=" + version);
+    (0,core.info)(`Fetching mods for game version '${version}'`);
+    const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);
 
     for (const [depName, depVersion] of Object.entries({ ...manifest.dependsOn, ...additionalDependencies })) {
         const dependency = mods.find(x => (x.name === depName || x.name == depAliases[depName]) && (0,semver.satisfies)(x.version, depVersion));
 
         if (dependency != null) {
             const depDownload = dependency.downloads.find(x => x.type === "universal").url;
-            (0,core.info)("Downloading mod '" + depName + "' version '" + dependency.version + "'");
-            await download("https://beatmods.com" + depDownload, extractPath);
+            (0,core.info)(`Downloading mod '${depName}' version '${dependency.version}'`);
+            await download(`https://beatmods.com${depDownload}`, extractPath);
 
             // special case since BSIPA moves files at runtime
             if (depName === "BSIPA") {
@@ -34966,7 +34966,7 @@ async function main() {
                 copySync((0,external_path_.join)(extractPath, "IPA", "Data"), (0,external_path_.join)(extractPath, "Beat Saber_Data"), { overwrite: true });
             }
         } else {
-            (0,core.warning)("Mod '" + depName + "' version '" + depVersion + "' not found.");
+            (0,core.error)(`Mod '${depName}' version '${depVersion}' not found.`);
         }
     }
 }

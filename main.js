@@ -1,4 +1,4 @@
-import { info, getInput, warning, setFailed } from '@actions/core';
+import { error, getInput, info, setFailed, warning } from '@actions/core';
 import fetch from 'node-fetch';
 import { satisfies } from 'semver';
 import { Extract } from 'unzipper';
@@ -40,7 +40,7 @@ export async function main() {
     }
 
     const manifest = JSON.parse(manifestStringData);
-    info("Retrieved manifest of '" + manifest.id + "' version '" + manifest.version + "'");
+    info(`Retrieved manifest of '${manifest.id}' version '${manifest.version}'`);
 
     const wantedGameVersion = getInput("game-version", { required: false }) || manifest.gameVersion;
     const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
@@ -48,19 +48,19 @@ export async function main() {
 
     const version = gameVersions.find(x => x === wantedGameVersion || versionAliases[x].some(y => y === wantedGameVersion));
     if (version == null) {
-        throw new Error("Game version '" + wantedGameVersion + "' doesn't exist.");
+        throw new Error(`Game version '${wantedGameVersion}' doesn't exist.`);
     }
 
-    info("Fetching mods for game version '" + version + "'");
-    const mods = await fetchJson("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=" + version);
+    info(`Fetching mods for game version '${version}'`);
+    const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);
 
     for (const [depName, depVersion] of Object.entries({ ...manifest.dependsOn, ...additionalDependencies })) {
         const dependency = mods.find(x => (x.name === depName || x.name == depAliases[depName]) && satisfies(x.version, depVersion));
 
         if (dependency != null) {
             const depDownload = dependency.downloads.find(x => x.type === "universal").url;
-            info("Downloading mod '" + depName + "' version '" + dependency.version + "'");
-            await download("https://beatmods.com" + depDownload, extractPath);
+            info(`Downloading mod '${depName}' version '${dependency.version}'`);
+            await download(`https://beatmods.com${depDownload}`, extractPath);
 
             // special case since BSIPA moves files at runtime
             if (depName === "BSIPA") {
@@ -68,7 +68,7 @@ export async function main() {
                 copySync(join(extractPath, "IPA", "Data"), join(extractPath, "Beat Saber_Data"), { overwrite: true });
             }
         } else {
-            warning("Mod '" + depName + "' version '" + depVersion + "' not found.");
+            error(`Mod '${depName}' version '${depVersion}' not found.`);
         }
     }
 }
