@@ -2,31 +2,17 @@ import { error, getInput, info, warning } from "@actions/core";
 import fetch from "node-fetch";
 import { satisfies } from "semver";
 import decompress from "decompress";
-import { readFileSync, writeFileSync } from "fs";
-import { copySync } from "fs-extra/esm";
+import fs from "fs-extra";
 import { join } from "path";
 
 export async function run() {
     const manifestPath = getInput("manifest");
     const extractPath = getInput("path");
 
-    const depAliases = JSON.parse(getInput("aliases") || null) || {};
+    const depAliases = JSON.parse(getInput("aliases") || "{}");
+    const additionalDependencies = JSON.parse(getInput("additional-dependencies") || "{}");
 
-    if (depAliases != {}) {
-        Object.entries(depAliases).forEach(([key, value]) => {
-            info(`Given alias '${key}': '${value}'`);
-        });
-    }
-
-    const additionalDependencies = JSON.parse(getInput("additional-dependencies") || null) || {};
-
-    if (additionalDependencies != {}) {
-        Object.entries(additionalDependencies).forEach(([key, value]) => {
-            info(`Given additional dependency '${key}' @ '${value}'`);
-        });
-    }
-
-    let manifestStringData = readFileSync(manifestPath, "utf8");
+    let manifestStringData = fs.readFileSync(manifestPath, "utf8");
     if (manifestStringData.startsWith("\uFEFF")) {
         warning("BOM character detected at the beginning of the manifest JSON file. Please remove the BOM from the file as it does not conform to the JSON spec (https://datatracker.ietf.org/doc/html/rfc7159#section-8.1) and may cause issues regarding interoperability.")
         manifestStringData = manifestStringData.slice(1);
@@ -37,6 +23,10 @@ export async function run() {
 
     const semverRegex = /^(?<prerelease>(?<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?:-(?:(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?)(?:\+(?:[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
     const match = semverRegex.exec(manifest.version);
+
+    if (!match?.groups) {
+        throw new Error(`Could not parse '${manifest.version}' as a semantic version`)
+    }
 
     const versionWithPrerelease = match.groups["prerelease"];
 
@@ -57,34 +47,34 @@ export async function run() {
         manifest.version = `${versionWithPrerelease}+git.${hash}`;
     }
 
-    writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), { encoding: "utf8" });
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), { encoding: "utf8" });
 
     const wantedGameVersion = getInput("game-version") || manifest.gameVersion;
     await downloadBindings(wantedGameVersion, extractPath);
 
-    const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
-    const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json");
+    const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json") as any;
+    const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json") as any;
 
-    const version = gameVersions.find(x => x === wantedGameVersion || versionAliases[x].some(y => y === wantedGameVersion));
+    const version = gameVersions.find((x: any) => x === wantedGameVersion || versionAliases[x].some((y: any) => y === wantedGameVersion));
     if (version == null) {
         throw new Error(`Game version '${wantedGameVersion}' doesn't exist.`);
     }
 
     info(`Fetching mods for game version '${version}'`);
-    const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);
+    const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`) as any;
 
     for (const [depName, depVersion] of Object.entries({ ...manifest.dependsOn, ...additionalDependencies })) {
-        const dependency = mods.find(x => (x.name === depName || x.name == depAliases[depName]) && satisfies(x.version, depVersion));
+        const dependency = mods.find((x: any) => (x.name === depName || x.name == depAliases[depName]) && satisfies(x.version, depVersion as string));
 
         if (dependency != null) {
-            const depDownload = dependency.downloads.find(x => x.type === "universal").url;
+            const depDownload = dependency.downloads.find((x: any) => x.type === "universal").url;
             info(`Downloading mod '${depName}' version '${dependency.version}'`);
             await download(`https://beatmods.com${depDownload}`, extractPath);
 
             // special case since BSIPA moves files at runtime
             if (depName === "BSIPA") {
-                copySync(join(extractPath, "IPA", "Libs"), join(extractPath, "Libs"), { overwrite: true });
-                copySync(join(extractPath, "IPA", "Data"), join(extractPath, "Beat Saber_Data"), { overwrite: true });
+                fs.copySync(join(extractPath, "IPA", "Libs"), join(extractPath, "Libs"), { overwrite: true });
+                fs.copySync(join(extractPath, "IPA", "Data"), join(extractPath, "Beat Saber_Data"), { overwrite: true });
             }
         } else {
             error(`Mod '${depName}' version '${depVersion}' not found.`);
@@ -92,17 +82,17 @@ export async function run() {
     }
 }
 
-async function fetchJson(url) {
+async function fetchJson(url: string) {
     const response = await fetch(url);
     return await response.json();
 }
 
-async function download(url, extractPath) {
+async function download(url: string, extractPath: string) {
     const response = await fetch(url);
     await decompress(Buffer.from(await response.arrayBuffer()), extractPath);
 }
 
-async function downloadBindings(version, extractPath) {
+async function downloadBindings(version: string, extractPath: string) {
     const accessToken = getInput("access-token");
     const url = `https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v${version}`
     const headers = {

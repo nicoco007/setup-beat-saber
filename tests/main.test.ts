@@ -4,18 +4,19 @@ import * as process from "process";
 import * as path from "path";
 import sinon from "sinon";
 import * as nf from "node-fetch";
-import * as fs from "fs";
 import * as ac from "@actions/core";
+import fs from "fs-extra";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const fetch = sinon.stub().callsFake((url) => { throw new Error(`Unexpected web request to ${url}`) });
 
 jest.unstable_mockModule("node-fetch", () => ({
     ...nf,
     __esModule: true,
-    default: sinon.stub().callsFake((url) => { throw new Error(`Unexpected web request to ${url}`) }),
+    default: fetch,
 }));
 
-jest.unstable_mockModule("@actions/core", async () => ({
+jest.unstable_mockModule("@actions/core", () => ({
     ...ac,
     __esModule: true,
     info: jest.fn(),
@@ -23,22 +24,21 @@ jest.unstable_mockModule("@actions/core", async () => ({
     error: jest.fn(),
 }));
 
-jest.unstable_mockModule("fs", () => ({
+const writeFileSync = jest.fn();
+
+jest.mock('fs-extra', () => ({
     ...fs,
-    __esModule: true,
-    writeFileSync: jest.fn(),
+    writeFileSync: writeFileSync,
 }));
 
-const { default: fetch } = await import("node-fetch");
 const { run } = await import("../src/main");
 const core = await import("@actions/core");
-const { writeFileSync } = await import("fs");
 
-function setInput(name, value) {
+function setInput(name: string, value: string) {
     process.env[`INPUT_${name.replace(/ /g, '_').toUpperCase()}`] = value;
 }
 
-function mockFetch(url, body, status = 200) {
+function mockFetch(url: string, body: nf.BodyInit | undefined, status = 200) {
     fetch.withArgs(url).returns(new nf.Response(body, {
         status: status,
         headers: new nf.Headers({
@@ -47,7 +47,7 @@ function mockFetch(url, body, status = 200) {
     }));
 }
 
-function mockGitHubApiResponse(response) {
+function mockGitHubApiResponse(response: nf.Response | undefined = undefined) {
     response ||= new nf.Response(
         fs.createReadStream(path.join(__dirname, "files", "beat-saber-bindings.zip")),
         {
@@ -113,7 +113,7 @@ describe("main", () => {
 
     it("injects the git hash into the manifest version", async () => {
         const manifestPath = path.join(__dirname, "files", "basic.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath));
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, { encoding: 'utf8' }));
 
         setInput("manifest", manifestPath);
         process.env["GITHUB_SHA"] = "4ef156d43d79b5b63b421f7e867ff67d57ee42d8";
@@ -128,7 +128,7 @@ describe("main", () => {
 
     it("validates the tag if present", async () => {
         const manifestPath = path.join(__dirname, "files", "basic.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath));
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, { encoding: 'utf8' }));
 
         setInput("manifest", manifestPath);
         process.env["GITHUB_REF_TYPE"] = "tag";
@@ -142,7 +142,7 @@ describe("main", () => {
 
     it("validates the tag if present with a custom tag format", async () => {
         const manifestPath = path.join(__dirname, "files", "basic.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath));
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, { encoding: 'utf8' }));
 
         setInput("manifest", manifestPath);
         setInput("tag-format", "some-thing/v{0}");
@@ -198,7 +198,6 @@ describe("main", () => {
 
         await run();
 
-        expect(core.info).toHaveBeenCalledWith("Given alias 'CustomAvatar': 'Custom Avatars'");
         expect(core.info).toHaveBeenCalledWith("Retrieved manifest of 'examplemod' version '0.1.0'");
         expect(core.info).toHaveBeenCalledWith("Fetching mods for game version '1.13.2'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'CustomAvatar' version '5.1.2'");

@@ -2,3 +2,4 @@ Refs
 node_modules
 /dist/package.json
 /dist/*.index.js*
+/coverage
