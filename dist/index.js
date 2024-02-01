@@ -1,4 +1,4 @@
-import './sourcemap-register.cjs';import { createRequire as __WEBPACK_EXTERNAL_createRequire } from "module";
+import { createRequire as __WEBPACK_EXTERNAL_createRequire } from "module";
 /******/ var __webpack_modules__ = ({
 
 /***/ 7351:
@@ -50532,12 +50532,7 @@ async function downloadBindings(version, extractPath) {
 
 ;// CONCATENATED MODULE: ./src/index.ts
 
-
-run()
-    .catch((error) => (0,core.setFailed)(error.message))
-    .then(() => (0,core.info)("Complete!"));
+run();
 
 })();
 
-
-//# sourceMappingURL=index.js.map
