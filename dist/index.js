@@ -50471,18 +50471,22 @@ async function run() {
     await downloadBindings(wantedGameVersion, extractPath);
     const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
     const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json");
-    const version = gameVersions.find((x) => x === wantedGameVersion || versionAliases[x].some((y) => y === wantedGameVersion));
+    const version = gameVersions.find(gv => gv === wantedGameVersion || versionAliases[gv].some(va => va === wantedGameVersion));
     if (version == null) {
         throw new Error(`Game version '${wantedGameVersion}' doesn't exist.`);
     }
     (0,core.info)(`Fetching mods for game version '${version}'`);
     const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);
     for (const [depName, depVersion] of Object.entries({ ...manifest.dependsOn, ...additionalDependencies })) {
-        const dependency = mods.find((x) => (x.name === depName || x.name == depAliases[depName]) && (0,semver.satisfies)(x.version, depVersion));
+        const dependency = mods.find(m => (m.name === depName || m.name == depAliases[depName]) && (0,semver.satisfies)(m.version, depVersion));
         if (dependency != null) {
-            const depDownload = dependency.downloads.find((x) => x.type === "universal").url;
+            const depDownload = dependency.downloads.find(d => d.type === "universal")?.url;
+            if (!depDownload) {
+                (0,core.error)(`No universal download found for mod '${depName}'`);
+                continue;
+            }
             (0,core.info)(`Downloading mod '${depName}' version '${dependency.version}'`);
-            await download(`https://beatmods.com${depDownload}`, extractPath);
+            await downloadAndExtract(`https://beatmods.com${depDownload}`, extractPath);
             // special case since BSIPA moves files at runtime
             if (depName === "BSIPA") {
                 lib_default().copySync((0,external_path_.join)(extractPath, "IPA", "Libs"), (0,external_path_.join)(extractPath, "Libs"), { overwrite: true });
@@ -50496,9 +50500,9 @@ async function run() {
 }
 async function fetchJson(url) {
     const response = await fetch(url);
-    return await response.json();
+    return (await response.json());
 }
-async function download(url, extractPath) {
+async function downloadAndExtract(url, extractPath) {
     const response = await fetch(url);
     await decompress_default()(Buffer.from(await response.arrayBuffer()), extractPath);
 }

@@ -52,24 +52,30 @@ export async function run() {
     const wantedGameVersion = getInput("game-version") || manifest.gameVersion;
     await downloadBindings(wantedGameVersion, extractPath);
 
-    const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json") as any;
-    const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json") as any;
+    const gameVersions = await fetchJson<string[]>("https://versions.beatmods.com/versions.json");
+    const versionAliases = await fetchJson<VersionAliasCollection>("https://alias.beatmods.com/aliases.json");
 
-    const version = gameVersions.find((x: any) => x === wantedGameVersion || versionAliases[x].some((y: any) => y === wantedGameVersion));
+    const version = gameVersions.find(gv => gv === wantedGameVersion || versionAliases[gv].some(va => va === wantedGameVersion));
     if (version == null) {
         throw new Error(`Game version '${wantedGameVersion}' doesn't exist.`);
     }
 
     info(`Fetching mods for game version '${version}'`);
-    const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`) as any;
+    const mods = await fetchJson<Mod[]>(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);
 
     for (const [depName, depVersion] of Object.entries({ ...manifest.dependsOn, ...additionalDependencies })) {
-        const dependency = mods.find((x: any) => (x.name === depName || x.name == depAliases[depName]) && satisfies(x.version, depVersion as string));
+        const dependency = mods.find(m => (m.name === depName || m.name == depAliases[depName]) && satisfies(m.version, depVersion as string));
 
         if (dependency != null) {
-            const depDownload = dependency.downloads.find((x: any) => x.type === "universal").url;
+            const depDownload = dependency.downloads.find(d => d.type === "universal")?.url;
+
+            if (!depDownload) {
+                error(`No universal download found for mod '${depName}'`);
+                continue;
+            }
+
             info(`Downloading mod '${depName}' version '${dependency.version}'`);
-            await download(`https://beatmods.com${depDownload}`, extractPath);
+            await downloadAndExtract(`https://beatmods.com${depDownload}`, extractPath);
 
             // special case since BSIPA moves files at runtime
             if (depName === "BSIPA") {
@@ -82,12 +88,12 @@ export async function run() {
     }
 }
 
-async function fetchJson(url: string) {
+async function fetchJson<T>(url: string): Promise<T> {
     const response = await fetch(url);
-    return await response.json();
+    return (await response.json()) as T;
 }
 
-async function download(url: string, extractPath: string) {
+async function downloadAndExtract(url: string, extractPath: string) {
     const response = await fetch(url);
     await decompress(Buffer.from(await response.arrayBuffer()), extractPath);
 }
@@ -120,4 +126,17 @@ async function downloadBindings(version: string, extractPath: string) {
                 return file;
             },
         });
+}
+
+type VersionAliasCollection = { [key: string]: string[] };
+
+interface Mod {
+    name: string;
+    version: string;
+    downloads: ModDownload[];
+}
+
+interface ModDownload {
+    type: "universal" | "steam" | "oculus";
+    url: string;
 }
