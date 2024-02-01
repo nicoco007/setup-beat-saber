@@ -1,3 +1,4 @@
 {
-    "transform": {}
+    "transform": {},
+    "setupFilesAfterEnv": ["jest-sinon"]
 }

@@ -4,7 +4,7 @@ import * as process from "process";
 import * as path from "path";
 import sinon from "sinon";
 import * as nf from "node-fetch";
-import { readFileSync, createReadStream, rmSync } from "fs";
+import * as fs from "fs";
 import * as ac from "@actions/core";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 jest.unstable_mockModule("node-fetch", () => ({
     ...nf,
     __esModule: true,
-    default: sinon.stub(),
+    default: sinon.stub().callsFake((url) => { throw new Error(`Unexpected web request to ${url}`) }),
 }));
 
 jest.unstable_mockModule("@actions/core", async () => ({
@@ -21,11 +21,22 @@ jest.unstable_mockModule("@actions/core", async () => ({
     info: jest.fn(),
     warning: jest.fn(),
     error: jest.fn(),
-}))
+}));
+
+jest.unstable_mockModule("fs", () => ({
+    ...fs,
+    __esModule: true,
+    writeFileSync: jest.fn(),
+}));
 
 const { default: fetch } = await import("node-fetch");
 const { main } = await import("./main");
-const core = await import ("@actions/core");
+const core = await import("@actions/core");
+const { writeFileSync } = await import("fs");
+
+function setInput(name, value) {
+    process.env[`INPUT_${name.replace(/ /g, '_').toUpperCase()}`] = value;
+}
 
 function mockFetch(url, body, status = 200) {
     fetch.withArgs(url).returns(new nf.Response(body, {
@@ -36,32 +47,124 @@ function mockFetch(url, body, status = 200) {
     }));
 }
 
-describe("main", () => {
-    beforeEach(() => {
-        delete process.env["INPUT_MANIFEST"];
-        delete process.env["INPUT_PATH"];
-        delete process.env["INPUT_ALIASES"];
-        delete process.env["INPUT_ADDITIONAL-DEPENDENCIES"];
+function mockGitHubApiResponse(response) {
+    response ||= new nf.Response(
+        fs.createReadStream(path.join(__dirname, "tests", "beat-saber-bindings.zip")),
+        {
+            status: 200,
+            headers: new nf.Headers({ "Content-Type": "application/octet-stream" }),
+        }
+    );
+    
+    fetch.withArgs(
+        sinon.match(new RegExp("https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v.*")),
+        {
+            method: 'GET',
+            headers: {
+                "Accept": "application/vnd.github+json",
+                "Authorization": `Bearer github_pat_whatever`,
+                "User-Agent": "setup-beat-saber",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+        }
+    ).callsFake(() => response);
+}
 
-        fetch.withArgs(sinon.match(/https:\/\/beatmods.com\/uploads\/.*/)).callsFake(() =>
+describe("main", () => {
+    const env = { ...process.env };
+
+    beforeEach(() => {
+        setInput("path", path.join(__dirname, "BeatSaberBindings"));
+        setInput("access-token", "github_pat_whatever");
+
+        fetch.withArgs(sinon.match(new RegExp("https://beatmods.com/uploads/.*"))).callsFake(() =>
             new nf.Response(
-                createReadStream(path.join(__dirname, "tests", "dummy.zip")),
+                fs.createReadStream(path.join(__dirname, "tests", "dummy.zip")),
                 {
                     status: 200,
-                    headers: new nf.Headers({ "Content-Type": "application/octet-stream" })
+                    headers: new nf.Headers({ "Content-Type": "application/octet-stream" }),
                 }
             )
         );
 
+        mockGitHubApiResponse();
+
         mockFetch("https://versions.beatmods.com/versions.json", JSON.stringify(["1.13.2", "1.16.1"]));
         mockFetch("https://alias.beatmods.com/aliases.json", JSON.stringify({ "1.13.2": [], "1.16.1": ["1.16.2"] }));
-        mockFetch("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.13.2", readFileSync(path.join(__dirname, "tests", "mods_1.13.2.json")));
-        mockFetch("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.16.1", readFileSync(path.join(__dirname, "tests", "mods_1.16.1.json")));
+        mockFetch("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.13.2", fs.readFileSync(path.join(__dirname, "tests", "mods_1.13.2.json")));
+        mockFetch("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.16.1", fs.readFileSync(path.join(__dirname, "tests", "mods_1.16.1.json")));
     });
 
-    test("downloads all mods listed in manifest", async () => {
-        process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "basic.json");
-        process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
+    it("downloads bindings", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "basic.json"));
+
+        await main();
+
+        expect(fs.existsSync("BeatSaberBindings/Beat Saber_Data/Managed/Main.dll")).toBe(true);
+    });
+
+    it("throws if bindings response isn't successful", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "basic.json"));
+
+        mockGitHubApiResponse(new nf.Response(null, { status: 401, statusText: "Unauthorized" }));
+
+        await expect(main()).rejects.toThrow("Unexpected response status 401 Unauthorized");
+    });
+
+    it("injects the git hash into the manifest version", async () => {
+        const manifestPath = path.join(__dirname, "tests", "basic.json");
+        const manifest = JSON.parse(fs.readFileSync(manifestPath));
+
+        setInput("manifest", manifestPath);
+        process.env["GITHUB_SHA"] = "4ef156d43d79b5b63b421f7e867ff67d57ee42d8";
+
+        await main();
+
+        manifest.version = "0.1.0+git.4ef156d43d79b5b63b421f7e867ff67d57ee42d8"
+
+        expect(core.info).toHaveBeenCalledWith("Using Git hash '4ef156d43d79b5b63b421f7e867ff67d57ee42d8'");
+        expect(writeFileSync).toHaveBeenCalledWith(manifestPath, JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
+    });
+
+    it("validates the tag if present", async () => {
+        const manifestPath = path.join(__dirname, "tests", "basic.json");
+        const manifest = JSON.parse(fs.readFileSync(manifestPath));
+
+        setInput("manifest", manifestPath);
+        process.env["GITHUB_REF_TYPE"] = "tag";
+        process.env["GITHUB_REF_NAME"] = "v0.1.0";
+
+        await main();
+
+        expect(core.info).toHaveBeenCalledWith("Using Git tag 'v0.1.0'");
+        expect(writeFileSync).toHaveBeenCalledWith(manifestPath, JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
+    });
+
+    it("validates the tag if present with a custom tag format", async () => {
+        const manifestPath = path.join(__dirname, "tests", "basic.json");
+        const manifest = JSON.parse(fs.readFileSync(manifestPath));
+
+        setInput("manifest", manifestPath);
+        setInput("tag-format", "some-thing/v{0}");
+        process.env["GITHUB_REF_TYPE"] = "tag";
+        process.env["GITHUB_REF_NAME"] = "some-thing/v0.1.0";
+
+        await main();
+
+        expect(core.info).toHaveBeenCalledWith("Using Git tag 'some-thing/v0.1.0'");
+        expect(writeFileSync).toHaveBeenCalledWith(manifestPath, JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
+    });
+
+    it("fails if the tag does not match the manifest version", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "basic.json"));
+        process.env["GITHUB_REF_TYPE"] = "tag";
+        process.env["GITHUB_REF_NAME"] = "v1.0.0";
+
+        await expect(main()).rejects.toThrow("Git tag 'v1.0.0' does not match manifest version 'v0.1.0'");
+    });
+
+    it("downloads all mods listed in manifest", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "basic.json"));
 
         await main();
 
@@ -76,11 +179,12 @@ describe("main", () => {
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'SiraUtil' version '2.5.1'");
     });
 
-    test("resolves version aliases", async () => {
-        process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "version_alias.json");
-        process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
+    it("resolves version aliases", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "version_alias.json"));
 
         await main();
+
+        expect(fetch).toHaveBeenCalledWith("https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v1.16.2");
 
         expect(core.info).toHaveBeenCalledWith("Retrieved manifest of 'examplemod' version '0.1.0'");
         expect(core.info).toHaveBeenCalledWith("Fetching mods for game version '1.16.1'");
@@ -88,10 +192,9 @@ describe("main", () => {
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'SongCore' version '3.5.0'");
     });
 
-    test("resolves mod aliases", async () => {
-        process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "mod_alias.json");
-        process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
-        process.env["INPUT_ALIASES"] = JSON.stringify({ "CustomAvatar": "Custom Avatars" });
+    it("resolves mod aliases", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "mod_alias.json"));
+        setInput("aliases", JSON.stringify({ "CustomAvatar": "Custom Avatars" }));
 
         await main();
 
@@ -101,10 +204,9 @@ describe("main", () => {
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'CustomAvatar' version '5.1.2'");
     });
 
-    test("downloads additional dependencies", async () => {
-        process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "basic.json");
-        process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
-        process.env["INPUT_ADDITIONAL-DEPENDENCIES"] = JSON.stringify({ "Custom Avatars": "^5.1.0" });
+    it("downloads additional dependencies", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "basic.json"));
+        setInput("additional-dependencies", JSON.stringify({ "Custom Avatars": "^5.1.0" }));
 
         await main();
 
@@ -119,27 +221,24 @@ describe("main", () => {
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'Custom Avatars' version '5.1.2'");
     });
 
-    test("logs error for missing mods", async () => {
-        process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "nonexistent_mod.json");
-        process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
+    it("logs error for missing mods", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "nonexistent_mod.json"));
 
         await main();
 
         expect(core.error).toHaveBeenCalledWith("Mod 'MissingMod' version '^1.0.0' not found.");
     });
 
-    test("logs error for missing versions", async () => {
-        process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "nonexistent_version.json");
-        process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
+    it("logs error for missing versions", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "nonexistent_version.json"));
 
         await main();
 
         expect(core.error).toHaveBeenCalledWith("Mod 'BeatSaverSharp' version '^2000.0.0' not found.");
     });
 
-    test("warns if manifest has a BOM", async () => {
-        process.env["INPUT_MANIFEST"] = path.join(__dirname, "tests", "with_bom.json");
-        process.env["INPUT_PATH"] = path.join(__dirname, "Refs");
+    it("warns if manifest has a BOM", async () => {
+        setInput("manifest", path.join(__dirname, "tests", "with_bom.json"));
 
         await main();
 
@@ -147,8 +246,18 @@ describe("main", () => {
     });
 
     afterEach(() => {
-        rmSync(path.join(__dirname, "Refs"), { recursive: true, force: true });
+        fs.rmSync(path.join(__dirname, "BeatSaberBindings"), { recursive: true, force: true });
         sinon.restore();
         jest.resetAllMocks();
-    })
+
+        for (const key in process.env) {
+            const val = env[key];
+
+            if (val) {
+                process.env[key] = val;
+            } else {
+                delete process.env[key];
+            }
+        }
+    });
 });

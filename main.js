@@ -1,8 +1,8 @@
 import { error, getInput, info, setFailed, warning } from '@actions/core';
 import fetch from 'node-fetch';
 import { satisfies } from 'semver';
-import { Extract } from 'unzipper';
-import { readFileSync, existsSync } from "fs";
+import decompress from 'decompress';
+import { readFileSync, writeFileSync } from "fs";
 import { copySync } from "fs-extra/esm";
 import { join } from "path";
 import { env } from "process";
@@ -42,7 +42,33 @@ export async function main() {
     const manifest = JSON.parse(manifestStringData);
     info(`Retrieved manifest of '${manifest.id}' version '${manifest.version}'`);
 
-    const wantedGameVersion = getInput("game-version", { required: false }) || manifest.gameVersion;
+    const semverRegex = /^(?<prerelease>(?<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?:-(?:(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?)(?:\+(?:[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+    const match = semverRegex.exec(manifest.version);
+
+    const versionWithPrerelease = match.groups["prerelease"];
+
+    if (process.env["GITHUB_REF_TYPE"] == 'tag') {
+        const gitTag = process.env["GITHUB_REF_NAME"];
+        const tagFormat = getInput("tag-format") || "v{0}";
+        const builtTag = tagFormat.replace("{0}", versionWithPrerelease);
+
+        if (gitTag != builtTag) {
+            throw new Error(`Git tag '${gitTag}' does not match manifest version '${builtTag}'`);
+        }
+
+        info(`Using Git tag '${gitTag}'`);
+        manifest.version = versionWithPrerelease;
+    } else {
+        const hash = process.env["GITHUB_SHA"];
+        info(`Using Git hash '${hash}'`);
+        manifest.version = `${versionWithPrerelease}+git.${hash}`;
+    }
+
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
+
+    const wantedGameVersion = getInput("game-version") || manifest.gameVersion;
+    await downloadBindings(wantedGameVersion, extractPath);
+
     const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
     const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json");
 
@@ -80,14 +106,35 @@ async function fetchJson(url) {
 
 async function download(url, extractPath) {
     const response = await fetch(url);
-    const stream = Extract({path: extractPath});
-    const promise = new Promise((resolve) => {
-        stream.on('close', () => {
-            resolve();
-        });
-    });
-    
-    response.body.pipe(stream);
+    await decompress(Buffer.from(await response.arrayBuffer()), extractPath);
+}
 
-    return promise;
+async function downloadBindings(version, extractPath) {
+    const accessToken = getInput("access-token");
+    const url = `https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v${version}`
+    const headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": `Bearer ${accessToken}`,
+        "User-Agent": "setup-beat-saber",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    info(`Downloading bindings for version '${version}'`);
+    const response = await fetch(url, { method: 'GET', headers });
+
+    if (response.status != 200) {
+        throw new Error(`Unexpected response status ${response.status} ${response.statusText}`);
+    }
+
+    await decompress(
+        Buffer.from(await response.arrayBuffer()),
+        join(extractPath, "Beat Saber_Data", "Managed"),
+        {
+            map: (file) => {
+                if (file.type == 'file') {
+                    file.path = file.path.substring(file.path.indexOf('/') + 1);
+                }
+
+                return file;
+            },
+        });
 }

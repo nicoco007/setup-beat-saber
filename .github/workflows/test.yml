@@ -1,4 +1,4 @@
-name: test
+name: Test
 
 on:
   push:
@@ -7,40 +7,19 @@ on:
   pull_request:
 
 jobs:
-  Real-Dependencies:
+  test:
+    name: Run tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Download Dependencies
-        uses: ./
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          manifest: ./tests/realmanifest.json
-  Fake-Dependencies:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Download Dependencies
-        uses: ./
-        with:
-          manifest: ./tests/fakemanifest.json
-  Aliased-Dependencies:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Download Dependencies
-        uses: ./
-        with: 
-          manifest: ./tests/aliasedmanifest.json
-          aliases: '{"CustomAvatar": "Custom Avatars"}'
-  BOM-Encoding:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Download Dependencies
-        uses: ./
-        with:
-          manifest: ./tests/bommanifest.json
+          node-version: '20'
+
+      - name: Run tests
+        run: |
+          npm install
+          npm test

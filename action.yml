@@ -1,20 +1,23 @@
-name: Download Beatmods Dependencies
-description: Download and extract dependencies from beatmods using manifest.json
-author: Goobwabber
+name: Set up Beat Saber
+description: Fetch Beat Saber bindings and dependencies.
+author: nicoco007
 branding:
   icon: download
   color: gray-dark
 inputs:
+  access-token:
+    description: Token used to download bindings
+    required: true
   manifest:
     description: Path to manifest.json
     required: false
-    default: ${{github.workspace}}/manifest.json
+    default: ${{ github.workspace }}/manifest.json
   path:
     description: Where to unpack dependencies
     required: false
-    default: ${{github.workspace}}/Refs
+    default: ${{ runner.temp }}/BeatSaberBindings
   aliases:
-    description: Dictionary of dependency id aliases
+    description: Dictionary of dependency ID aliases
     required: false
     default: '{}'
   game-version:
@@ -25,5 +28,5 @@ inputs:
     required: false
     default: '{}'
 runs:
-  using: node16
+  using: node20
   main: dist/index.js
