@@ -1,19 +1,12 @@
-import { error, getInput, info, setFailed, warning } from '@actions/core';
-import fetch from 'node-fetch';
-import { satisfies } from 'semver';
-import decompress from 'decompress';
+import { error, getInput, info, warning } from "@actions/core";
+import fetch from "node-fetch";
+import { satisfies } from "semver";
+import decompress from "decompress";
 import { readFileSync, writeFileSync } from "fs";
 import { copySync } from "fs-extra/esm";
 import { join } from "path";
-import { env } from "process";
 
-if (env["NODE_ENV"] != "test") {
-    main()
-        .catch((error) => setFailed(error.message))
-        .then(() => info("Complete!"));
-}
-
-export async function main() {
+export async function run() {
     const manifestPath = getInput("manifest");
     const extractPath = getInput("path");
 
@@ -33,8 +26,8 @@ export async function main() {
         });
     }
 
-    let manifestStringData = readFileSync(manifestPath, 'utf8');
-    if (manifestStringData.startsWith('\uFEFF')) {
+    let manifestStringData = readFileSync(manifestPath, "utf8");
+    if (manifestStringData.startsWith("\uFEFF")) {
         warning("BOM character detected at the beginning of the manifest JSON file. Please remove the BOM from the file as it does not conform to the JSON spec (https://datatracker.ietf.org/doc/html/rfc7159#section-8.1) and may cause issues regarding interoperability.")
         manifestStringData = manifestStringData.slice(1);
     }
@@ -47,7 +40,7 @@ export async function main() {
 
     const versionWithPrerelease = match.groups["prerelease"];
 
-    if (process.env["GITHUB_REF_TYPE"] == 'tag') {
+    if (process.env["GITHUB_REF_TYPE"] == "tag") {
         const gitTag = process.env["GITHUB_REF_NAME"];
         const tagFormat = getInput("tag-format") || "v{0}";
         const builtTag = tagFormat.replace("{0}", versionWithPrerelease);
@@ -64,7 +57,7 @@ export async function main() {
         manifest.version = `${versionWithPrerelease}+git.${hash}`;
     }
 
-    writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), { encoding: "utf8" });
 
     const wantedGameVersion = getInput("game-version") || manifest.gameVersion;
     await downloadBindings(wantedGameVersion, extractPath);
@@ -119,7 +112,7 @@ async function downloadBindings(version, extractPath) {
         "X-GitHub-Api-Version": "2022-11-28",
     }
     info(`Downloading bindings for version '${version}'`);
-    const response = await fetch(url, { method: 'GET', headers });
+    const response = await fetch(url, { method: "GET", headers });
 
     if (response.status != 200) {
         throw new Error(`Unexpected response status ${response.status} ${response.statusText}`);
@@ -130,8 +123,8 @@ async function downloadBindings(version, extractPath) {
         join(extractPath, "Beat Saber_Data", "Managed"),
         {
             map: (file) => {
-                if (file.type == 'file') {
-                    file.path = file.path.substring(file.path.indexOf('/') + 1);
+                if (file.type == "file") {
+                    file.path = file.path.substring(file.path.indexOf("/") + 1);
                 }
 
                 return file;
