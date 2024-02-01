@@ -1,30 +1,42 @@
 {
-    "preset": "ts-jest/presets/default-esm",
-    "verbose": true,
-    "clearMocks": true,
-    "testEnvironment": "node",
-    "moduleFileExtensions": [
-      "js",
-      "ts"
-    ],
-    "testMatch": [
-      "**/*.test.ts"
-    ],
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/dist/"
-    ],
-    "setupFilesAfterEnv": ["jest-sinon"],
-    "extensionsToTreatAsEsm": [".ts"],
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
-    },
-    "transform": {
-      "^.+\\.tsx?$": [
-        "ts-jest",
-        {
-          "useESM": true
-        }
-      ]
-    }
+  "preset": "ts-jest/presets/default-esm",
+  "verbose": true,
+  "clearMocks": true,
+  "testEnvironment": "node",
+  "moduleFileExtensions": [
+    "js",
+    "ts"
+  ],
+  "testMatch": [
+    "**/*.test.ts"
+  ],
+  "testPathIgnorePatterns": [
+    "/node_modules/",
+    "/dist/"
+  ],
+  "setupFilesAfterEnv": [
+    "jest-sinon"
+  ],
+  "extensionsToTreatAsEsm": [
+    ".ts"
+  ],
+  "moduleNameMapper": {
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  },
+  "transform": {
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        "useESM": true
+      }
+    ]
+  },
+  "coverageReporters": [
+    "text",
+    "lcov"
+  ],
+  "collectCoverage": true,
+  "collectCoverageFrom": [
+    "./src/**"
+  ]
 }
