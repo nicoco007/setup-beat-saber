@@ -99,7 +99,7 @@ async function downloadAndExtract(url: string, extractPath: string) {
 }
 
 async function downloadBindings(version: string, extractPath: string) {
-    const accessToken = getInput("access-token");
+    const accessToken = getInput("access-token", { required: true });
     const url = `https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v${version}`
     const headers = {
         "Accept": "application/vnd.github+json",
