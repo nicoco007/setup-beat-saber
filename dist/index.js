@@ -50532,7 +50532,8 @@ async function downloadBindings(version, extractPath) {
 
 ;// CONCATENATED MODULE: ./src/index.ts
 
-run();
+
+run().catch((error) => (0,core.setFailed)(error.message));
 
 })();
 
