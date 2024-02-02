@@ -27,6 +27,10 @@ inputs:
     description: Additional dependencies required for build but not at runtime (e.g. optional dependencies)
     required: false
     default: '{}'
+  tag-format:
+    description: 'The format of version tags. {0} is replaced by the version from the manifest.'
+    required: false
+    default: 'v{0}'
 runs:
   using: node20
   main: dist/index.js
