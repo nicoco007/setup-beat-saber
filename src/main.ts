@@ -143,7 +143,7 @@ async function downloadAndExtract(url: string, extractPath: string) {
   const response = await fetch(url);
   await decompress(Buffer.from(await response.arrayBuffer()), extractPath, {
     // https://github.com/kevva/decompress/issues/46#issuecomment-428018719
-    filter: (file) => !file.path.endsWith('/'),
+    filter: (file) => !file.path.endsWith("/"),
   });
 }
 
@@ -170,7 +170,7 @@ async function downloadBindings(version: string, extractPath: string) {
     join(extractPath, "Beat Saber_Data", "Managed"),
     {
       // https://github.com/kevva/decompress/issues/46#issuecomment-428018719
-      filter: (file) => !file.path.endsWith('/'),
+      filter: (file) => !file.path.endsWith("/"),
       map: (file) => {
         if (file.type == "file") {
           file.path = file.path.substring(file.path.indexOf("/") + 1);
