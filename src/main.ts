@@ -135,7 +135,7 @@ export async function run() {
 
   fs.appendFileSync(
     process.env["GITHUB_ENV"]!,
-    `BeatSaberDir=${extractPath}\n`,
+    `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`,
     "utf8",
   );
 }

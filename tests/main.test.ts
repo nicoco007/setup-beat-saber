@@ -410,9 +410,11 @@ describe("main", () => {
   it("writes the target location to GITHUB_ENV", async () => {
     await run();
 
+    const expectedPath = path.join(__dirname, "BeatSaberBindings");
+
     expect(appendFileSync).toHaveBeenCalledWith(
       "github_env.txt",
-      `BeatSaberDir=${path.join(__dirname, "BeatSaberBindings")}\n`,
+      `BeatSaberDir=${expectedPath}\nGameDirectory=${expectedPath}\n`,
       "utf8",
     );
   });

@@ -50506,7 +50506,7 @@ async function run() {
             (0,core.error)(`Mod '${depName}' version '${depVersion}' not found.`);
         }
     }
-    lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}\n`, "utf8");
+    lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`, "utf8");
 }
 async function fetchJson(url) {
     const response = await fetch(url);
