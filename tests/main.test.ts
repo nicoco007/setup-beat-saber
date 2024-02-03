@@ -365,7 +365,7 @@ describe("main", () => {
   });
 
   it("logs an error if there is no universal download", async () => {
-    mockManifest({ dependsOn: { "DummyNoDownload": "^4.1.4" } });
+    mockManifest({ dependsOn: { DummyNoDownload: "^4.1.4" } });
 
     await run();
 
