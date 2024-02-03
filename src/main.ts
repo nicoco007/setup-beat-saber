@@ -49,16 +49,19 @@ export async function run() {
 
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), { encoding: "utf8" });
 
-    const wantedGameVersion = getInput("game-version") || manifest.gameVersion;
-    await downloadBindings(wantedGameVersion, extractPath);
+    let wantedGameVersion = getInput("game-version") || manifest.gameVersion;
 
     const gameVersions = await fetchJson<string[]>("https://versions.beatmods.com/versions.json");
     const versionAliases = await fetchJson<VersionAliasCollection>("https://alias.beatmods.com/aliases.json");
 
-    const version = gameVersions.find(gv => gv === wantedGameVersion || versionAliases[gv].some(va => va === wantedGameVersion));
+    let version = gameVersions.find(gv => gv === wantedGameVersion || versionAliases[gv].some(va => va === wantedGameVersion));
     if (version == null) {
-        throw new Error(`Game version '${wantedGameVersion}' doesn't exist.`);
+        const latestVersion = gameVersions[0];
+        warning(`Game version '${wantedGameVersion}' doesn't exist; using latest version '${latestVersion}'`);
+        version = latestVersion;
     }
+
+    await downloadBindings(wantedGameVersion, extractPath);
 
     info(`Fetching mods for game version '${version}'`);
     const mods = await fetchJson<Mod[]>(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);

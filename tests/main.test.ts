@@ -89,7 +89,7 @@ describe("main", () => {
 
         mockGitHubApiResponse();
 
-        mockFetch("https://versions.beatmods.com/versions.json", JSON.stringify(["1.13.2", "1.16.1"]));
+        mockFetch("https://versions.beatmods.com/versions.json", JSON.stringify(["1.16.1", "1.13.2"]));
         mockFetch("https://alias.beatmods.com/aliases.json", JSON.stringify({ "1.13.2": [], "1.16.1": ["1.16.2"] }));
         mockFetch("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.13.2", fs.readFileSync(path.join(__dirname, "files", "mods_1.13.2.json")));
         mockFetch("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.16.1", fs.readFileSync(path.join(__dirname, "files", "mods_1.16.1.json")));
@@ -101,6 +101,13 @@ describe("main", () => {
         await run();
 
         expect(fs.existsSync(path.join(__dirname, "BeatSaberBindings", "Beat Saber_Data", "Managed", "Main.dll"))).toBe(true);
+    });
+
+    it("throws an error if the response code isn't 200", async () => {
+        setInput("manifest", path.join(__dirname, "files", "basic.json"));
+        mockGitHubApiResponse(new nf.Response(null, { status: 404, statusText: "Not Found" }));
+
+        await expect(run()).rejects.toThrow(new Error("Unexpected response status 404 Not Found"));
     });
 
     it("throws if bindings response isn't successful", async () => {
@@ -218,6 +225,15 @@ describe("main", () => {
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'BeatSaberMarkupLanguage' version '1.4.5'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'SiraUtil' version '2.5.1'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'Custom Avatars' version '5.1.2'");
+    });
+
+    it("warns if game version doesn't exist and falls back to latest version", async () => {
+        setInput("manifest", path.join(__dirname, "files", "nonexistent_game_version.json"));
+
+        await run();
+
+        expect(core.warning).toHaveBeenCalledWith("Game version '1.2.3' doesn't exist; using latest version '1.16.1'");
+        expect(fetch).toHaveBeenCalledWith("https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.16.1")
     });
 
     it("logs error for missing mods", async () => {
