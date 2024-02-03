@@ -24,10 +24,12 @@ jest.unstable_mockModule("@actions/core", () => ({
     error: jest.fn(),
 }));
 
+const readFileSync = sinon.stub();
 const writeFileSync = jest.fn();
 
 jest.mock('fs-extra', () => ({
     ...fs,
+    readFileSync: readFileSync,
     writeFileSync: writeFileSync,
 }));
 
@@ -70,12 +72,47 @@ function mockGitHubApiResponse(response: nf.Response | undefined = undefined) {
     ).callsFake(() => response);
 }
 
+interface Manifest {
+    id: string;
+    version: string;
+    gameVersion: string;
+    dependsOn: { [key: string]: string };
+}
+
+function mockManifest({
+    id = "examplemod",
+    version = "0.1.0",
+    gameVersion = "1.13.2",
+    dependsOn = {
+        "BSIPA": "^4.1.3",
+        "BS Utils": "^1.6.3",
+        "SongCore": "^3.0.2"
+    },
+}: Partial<Manifest> = {}, bom = false): Manifest {
+    const manifest = {
+        id,
+        version,
+        gameVersion,
+        dependsOn,
+    };
+
+    readFileSync.withArgs("manifest.json").returns((bom ? "\uFEFF" : "") + JSON.stringify(manifest));
+
+    return manifest;
+}
+
 describe("main", () => {
     const env = { ...process.env };
+    let manifest: Manifest;
 
     beforeEach(() => {
         setInput("path", path.join(__dirname, "BeatSaberBindings"));
         setInput("access-token", "github_pat_whatever");
+        setInput("manifest", "manifest.json");
+
+        process.env["GITHUB_SHA"] = "4ef156d43d79b5b63b421f7e867ff67d57ee42d8";
+
+        manifest = mockManifest();
 
         fetch.withArgs(sinon.match(new RegExp("https://beatmods.com/uploads/.*"))).callsFake(() =>
             new nf.Response(
@@ -96,62 +133,43 @@ describe("main", () => {
     });
 
     it("downloads bindings", async () => {
-        setInput("manifest", path.join(__dirname, "files", "basic.json"));
-
         await run();
 
         expect(fs.existsSync(path.join(__dirname, "BeatSaberBindings", "Beat Saber_Data", "Managed", "Main.dll"))).toBe(true);
     });
 
     it("throws an error if the response code isn't 200", async () => {
-        setInput("manifest", path.join(__dirname, "files", "basic.json"));
         mockGitHubApiResponse(new nf.Response(null, { status: 404, statusText: "Not Found" }));
 
         await expect(run()).rejects.toThrow(new Error("Unexpected response status 404 Not Found"));
     });
 
     it("throws if bindings response isn't successful", async () => {
-        setInput("manifest", path.join(__dirname, "files", "basic.json"));
-
         mockGitHubApiResponse(new nf.Response(null, { status: 401, statusText: "Unauthorized" }));
 
         await expect(run()).rejects.toThrow("Unexpected response status 401 Unauthorized");
     });
 
     it("injects the git hash into the manifest version", async () => {
-        const manifestPath = path.join(__dirname, "files", "basic.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, { encoding: 'utf8' }));
-
-        setInput("manifest", manifestPath);
-        process.env["GITHUB_SHA"] = "4ef156d43d79b5b63b421f7e867ff67d57ee42d8";
-
         await run();
 
         manifest.version = "0.1.0+git.4ef156d43d79b5b63b421f7e867ff67d57ee42d8"
 
         expect(core.info).toHaveBeenCalledWith("Using Git hash '4ef156d43d79b5b63b421f7e867ff67d57ee42d8'");
-        expect(writeFileSync).toHaveBeenCalledWith(manifestPath, JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
+        expect(writeFileSync).toHaveBeenCalledWith("manifest.json", JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
     });
 
     it("validates the tag if present", async () => {
-        const manifestPath = path.join(__dirname, "files", "basic.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, { encoding: 'utf8' }));
-
-        setInput("manifest", manifestPath);
         process.env["GITHUB_REF_TYPE"] = "tag";
         process.env["GITHUB_REF_NAME"] = "v0.1.0";
 
         await run();
 
         expect(core.info).toHaveBeenCalledWith("Using Git tag 'v0.1.0'");
-        expect(writeFileSync).toHaveBeenCalledWith(manifestPath, JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
+        expect(writeFileSync).toHaveBeenCalledWith("manifest.json", JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
     });
 
     it("validates the tag if present with a custom tag format", async () => {
-        const manifestPath = path.join(__dirname, "files", "basic.json");
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, { encoding: 'utf8' }));
-
-        setInput("manifest", manifestPath);
         setInput("tag-format", "some-thing/v{0}");
         process.env["GITHUB_REF_TYPE"] = "tag";
         process.env["GITHUB_REF_NAME"] = "some-thing/v0.1.0";
@@ -159,11 +177,10 @@ describe("main", () => {
         await run();
 
         expect(core.info).toHaveBeenCalledWith("Using Git tag 'some-thing/v0.1.0'");
-        expect(writeFileSync).toHaveBeenCalledWith(manifestPath, JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
+        expect(writeFileSync).toHaveBeenCalledWith("manifest.json", JSON.stringify(manifest, null, 4), { encoding: 'utf8' });
     });
 
     it("fails if the tag does not match the manifest version", async () => {
-        setInput("manifest", path.join(__dirname, "files", "basic.json"));
         process.env["GITHUB_REF_TYPE"] = "tag";
         process.env["GITHUB_REF_NAME"] = "v1.0.0";
 
@@ -171,8 +188,6 @@ describe("main", () => {
     });
 
     it("downloads all mods listed in manifest", async () => {
-        setInput("manifest", path.join(__dirname, "files", "basic.json"));
-
         await run();
 
         // this sucks but I'm too lazy to make it better
@@ -181,13 +196,10 @@ describe("main", () => {
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'BSIPA' version '4.1.4'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'BS Utils' version '1.7.0'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'SongCore' version '3.1.0'");
-        expect(core.info).toHaveBeenCalledWith("Downloading mod 'BeatSaverSharp' version '2.0.0'");
-        expect(core.info).toHaveBeenCalledWith("Downloading mod 'BeatSaberMarkupLanguage' version '1.4.5'");
-        expect(core.info).toHaveBeenCalledWith("Downloading mod 'SiraUtil' version '2.5.1'");
     });
 
     it("resolves version aliases", async () => {
-        setInput("manifest", path.join(__dirname, "files", "version_alias.json"));
+        mockManifest({ gameVersion: "1.16.2" })
 
         await run();
 
@@ -200,8 +212,8 @@ describe("main", () => {
     });
 
     it("resolves mod aliases", async () => {
-        setInput("manifest", path.join(__dirname, "files", "mod_alias.json"));
         setInput("aliases", JSON.stringify({ "CustomAvatar": "Custom Avatars" }));
+        mockManifest({ dependsOn: { "CustomAvatar": "5.1.2" } });
 
         await run();
 
@@ -211,7 +223,6 @@ describe("main", () => {
     });
 
     it("downloads additional dependencies", async () => {
-        setInput("manifest", path.join(__dirname, "files", "basic.json"));
         setInput("additional-dependencies", JSON.stringify({ "Custom Avatars": "^5.1.0" }));
 
         await run();
@@ -221,14 +232,11 @@ describe("main", () => {
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'BSIPA' version '4.1.4'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'BS Utils' version '1.7.0'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'SongCore' version '3.1.0'");
-        expect(core.info).toHaveBeenCalledWith("Downloading mod 'BeatSaverSharp' version '2.0.0'");
-        expect(core.info).toHaveBeenCalledWith("Downloading mod 'BeatSaberMarkupLanguage' version '1.4.5'");
-        expect(core.info).toHaveBeenCalledWith("Downloading mod 'SiraUtil' version '2.5.1'");
         expect(core.info).toHaveBeenCalledWith("Downloading mod 'Custom Avatars' version '5.1.2'");
     });
 
     it("warns if game version doesn't exist and falls back to latest version", async () => {
-        setInput("manifest", path.join(__dirname, "files", "nonexistent_game_version.json"));
+        mockManifest({ gameVersion: "1.2.3" });
 
         await run();
 
@@ -237,7 +245,7 @@ describe("main", () => {
     });
 
     it("logs error for missing mods", async () => {
-        setInput("manifest", path.join(__dirname, "files", "nonexistent_mod.json"));
+        mockManifest({ dependsOn: { "MissingMod": "^1.0.0" } })
 
         await run();
 
@@ -245,7 +253,7 @@ describe("main", () => {
     });
 
     it("logs error for missing versions", async () => {
-        setInput("manifest", path.join(__dirname, "files", "nonexistent_version.json"));
+        mockManifest({ dependsOn: { "BeatSaverSharp": "^2000.0.0" } });
 
         await run();
 
@@ -253,7 +261,7 @@ describe("main", () => {
     });
 
     it("warns if manifest has a BOM", async () => {
-        setInput("manifest", path.join(__dirname, "files", "with_bom.json"));
+        mockManifest({}, true);
 
         await run();
 

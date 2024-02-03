@@ -3,9 +3,9 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "NodeNext",
-    "rootDir": "./src",
+    "rootDir": "./",
     "moduleResolution": "NodeNext",
-    "baseUrl": "./",
+    "baseUrl": "./src",
     "sourceMap": true,
     "outDir": "./dist",
     "noImplicitAny": true,
