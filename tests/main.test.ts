@@ -412,7 +412,7 @@ describe("main", () => {
 
     expect(appendFileSync).toHaveBeenCalledWith(
       "github_env.txt",
-      `BeatSaberDir=${__dirname}\\BeatSaberBindings`,
+      `BeatSaberDir=${path.join(__dirname, "BeatSaberBindings")}`,
     );
   });
 
