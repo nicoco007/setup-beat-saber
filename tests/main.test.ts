@@ -413,6 +413,7 @@ describe("main", () => {
     expect(appendFileSync).toHaveBeenCalledWith(
       "github_env.txt",
       `BeatSaberDir=${path.join(__dirname, "BeatSaberBindings")}\n`,
+      "utf8",
     );
   });
 
