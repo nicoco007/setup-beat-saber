@@ -1080,5 +1080,37 @@
             }
         ],
         "_id": "600a62508384cf2e7ec725a6"
+    },
+    {
+        "name": "DummyNoDownload",
+        "version": "4.1.4",
+        "gameVersion": "1.13.2",
+        "authorId": "5ca6a5fe317fa3777c3327cb",
+        "uploadDate": "2021-01-22T04:48:03.049Z",
+        "updatedDate": "2021-01-22T08:32:58.227Z",
+        "author": {
+            "_id": "5ca6a5fe317fa3777c3327cb",
+            "username": "DaNike",
+            "lastLogin": "2021-12-21T11:36:43.557Z"
+        },
+        "status": "approved",
+        "description": "A mod loader for Beat Saber. Provides a number of useful tools and utilities.",
+        "link": "https://bsmg.github.io/BeatSaber-IPA-Reloaded/index.html",
+        "category": "Core",
+        "downloads": [
+            {
+                "type": "steam",
+                "url": "/uploads/600a59038384cf2e7ec72582/universal/BSIPA-4.1.4.zip",
+                "hashMd5": [
+                    {
+                        "hash": "a8e4e34d05051ef2a1a74e5628f5bd6b",
+                        "file": "IPA/winhttp.dll"
+                    }
+                ]
+            }
+        ],
+        "required": true,
+        "dependencies": [],
+        "_id": "600a59038384cf2e7ec72582"
     }
 ]

@@ -356,6 +356,24 @@ describe("main", () => {
     );
   });
 
+  it("throws an error if the manifest version isn't a semantic version", async () => {
+    mockManifest({ version: "aaaaa" });
+
+    await expect(run()).rejects.toThrow(
+      new Error("Could not parse 'aaaaa' as a semantic version"),
+    );
+  });
+
+  it("logs an error if there is no universal download", async () => {
+    mockManifest({ dependsOn: { "DummyNoDownload": "^4.1.4" } });
+
+    await run();
+
+    expect(core.error).toHaveBeenCalledWith(
+      "No universal download found for mod 'DummyNoDownload'",
+    );
+  });
+
   it("logs error for missing mods", async () => {
     mockManifest({ dependsOn: { MissingMod: "^1.0.0" } });
 
