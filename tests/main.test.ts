@@ -9,6 +9,8 @@ import fs from "fs-extra";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fetch = sinon.stub().callsFake((url) => { throw new Error(`Unexpected web request to ${url}`) });
+const readFileSync = sinon.stub();
+const writeFileSync = sinon.stub();
 
 jest.unstable_mockModule("node-fetch", () => ({
     ...nf,
@@ -19,13 +21,10 @@ jest.unstable_mockModule("node-fetch", () => ({
 jest.unstable_mockModule("@actions/core", () => ({
     ...ac,
     __esModule: true,
-    info: jest.fn(),
-    warning: jest.fn(),
-    error: jest.fn(),
+    info: sinon.stub(),
+    warning: sinon.stub(),
+    error: sinon.stub(),
 }));
-
-const readFileSync = sinon.stub();
-const writeFileSync = jest.fn();
 
 jest.mock('fs-extra', () => ({
     ...fs,
