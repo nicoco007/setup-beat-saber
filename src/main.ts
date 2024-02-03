@@ -141,7 +141,10 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 async function downloadAndExtract(url: string, extractPath: string) {
   const response = await fetch(url);
-  await decompress(Buffer.from(await response.arrayBuffer()), extractPath);
+  await decompress(Buffer.from(await response.arrayBuffer()), extractPath, {
+    // https://github.com/kevva/decompress/issues/46#issuecomment-1537069659
+    filter: file => file.data.length != 0,
+  });
 }
 
 async function downloadBindings(version: string, extractPath: string) {
@@ -166,6 +169,8 @@ async function downloadBindings(version: string, extractPath: string) {
     Buffer.from(await response.arrayBuffer()),
     join(extractPath, "Beat Saber_Data", "Managed"),
     {
+      // https://github.com/kevva/decompress/issues/46#issuecomment-1537069659
+      filter: file => file.data.length != 0,
       map: (file) => {
         if (file.type == "file") {
           file.path = file.path.substring(file.path.indexOf("/") + 1);
