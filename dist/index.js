@@ -50513,7 +50513,10 @@ async function fetchJson(url) {
 }
 async function downloadAndExtract(url, extractPath) {
     const response = await fetch(url);
-    await decompress_default()(Buffer.from(await response.arrayBuffer()), extractPath);
+    await decompress_default()(Buffer.from(await response.arrayBuffer()), extractPath, {
+        // https://github.com/kevva/decompress/issues/46#issuecomment-1537069659
+        filter: file => file.data.length != 0,
+    });
 }
 async function downloadBindings(version, extractPath) {
     const accessToken = (0,core.getInput)("access-token", { required: true });
@@ -50530,6 +50533,8 @@ async function downloadBindings(version, extractPath) {
         throw new Error(`Unexpected response status ${response.status} ${response.statusText}`);
     }
     await decompress_default()(Buffer.from(await response.arrayBuffer()), (0,external_path_.join)(extractPath, "Beat Saber_Data", "Managed"), {
+        // https://github.com/kevva/decompress/issues/46#issuecomment-1537069659
+        filter: file => file.data.length != 0,
         map: (file) => {
             if (file.type == "file") {
                 file.path = file.path.substring(file.path.indexOf("/") + 1);
