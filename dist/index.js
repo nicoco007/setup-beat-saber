@@ -50466,21 +50466,30 @@ async function run() {
         (0,core.info)(`Using Git hash '${hash}'`);
         manifest.version = `${versionWithPrerelease}+git.${hash}`;
     }
-    lib_default().writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), { encoding: "utf8" });
+    lib_default().writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), {
+        encoding: "utf8",
+    });
     const wantedGameVersion = (0,core.getInput)("game-version") || manifest.gameVersion;
-    await downloadBindings(wantedGameVersion, extractPath);
     const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
     const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json");
-    const version = gameVersions.find(gv => gv === wantedGameVersion || versionAliases[gv].some(va => va === wantedGameVersion));
+    let version = gameVersions.find((gv) => gv === wantedGameVersion ||
+        versionAliases[gv].some((va) => va === wantedGameVersion));
     if (version == null) {
-        throw new Error(`Game version '${wantedGameVersion}' doesn't exist.`);
+        const latestVersion = gameVersions[0];
+        (0,core.warning)(`Game version '${wantedGameVersion}' doesn't exist; using latest version '${latestVersion}'`);
+        version = latestVersion;
     }
+    await downloadBindings(wantedGameVersion, extractPath);
     (0,core.info)(`Fetching mods for game version '${version}'`);
     const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);
-    for (const [depName, depVersion] of Object.entries({ ...manifest.dependsOn, ...additionalDependencies })) {
-        const dependency = mods.find(m => (m.name === depName || m.name == depAliases[depName]) && (0,semver.satisfies)(m.version, depVersion));
+    for (const [depName, depVersion] of Object.entries({
+        ...manifest.dependsOn,
+        ...additionalDependencies,
+    })) {
+        const dependency = mods.find((m) => (m.name === depName || m.name == depAliases[depName]) &&
+            (0,semver.satisfies)(m.version, depVersion));
         if (dependency != null) {
-            const depDownload = dependency.downloads.find(d => d.type === "universal")?.url;
+            const depDownload = dependency.downloads.find((d) => d.type === "universal")?.url;
             if (!depDownload) {
                 (0,core.error)(`No universal download found for mod '${depName}'`);
                 continue;
@@ -50507,11 +50516,11 @@ async function downloadAndExtract(url, extractPath) {
     await decompress_default()(Buffer.from(await response.arrayBuffer()), extractPath);
 }
 async function downloadBindings(version, extractPath) {
-    const accessToken = (0,core.getInput)("access-token");
+    const accessToken = (0,core.getInput)("access-token", { required: true });
     const url = `https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v${version}`;
     const headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": `Bearer ${accessToken}`,
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${accessToken}`,
         "User-Agent": "setup-beat-saber",
         "X-GitHub-Api-Version": "2022-11-28",
     };

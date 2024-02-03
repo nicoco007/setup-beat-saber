@@ -17,7 +17,7 @@ describe("index", () => {
   it("calls run when imported", async () => {
     runMock.mockReturnValue(Promise.reject(new Error("oh no")));
 
-    await import("../src/index");
+    await import("../src/index.js");
 
     expect(runMock).toHaveBeenCalled();
     expect(setFailedMock).toHaveBeenCalledWith("oh no");
