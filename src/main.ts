@@ -133,7 +133,7 @@ export async function run() {
     }
   }
 
-  fs.appendFileSync(process.env["GITHUB_ENV"]!, `BeatSaberDir=${extractPath}`);
+  fs.appendFileSync(process.env["GITHUB_ENV"]!, `BeatSaberDir=${extractPath}\n`);
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
