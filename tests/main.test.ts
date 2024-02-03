@@ -11,6 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fetch = sinon.stub().callsFake((url) => {
   throw new Error(`Unexpected web request to ${url}`);
 });
+const appendFileSync = sinon.stub();
 const readFileSync = sinon.stub();
 const writeFileSync = sinon.stub();
 
@@ -30,6 +31,7 @@ jest.unstable_mockModule("@actions/core", () => ({
 
 jest.mock("fs-extra", () => ({
   ...fs,
+  appendFileSync: appendFileSync,
   readFileSync: readFileSync,
   writeFileSync: writeFileSync,
 }));
@@ -126,6 +128,7 @@ describe("main", () => {
     setInput("access-token", "github_pat_whatever");
     setInput("manifest", "manifest.json");
 
+    process.env["GITHUB_ENV"] = "github_env.txt";
     process.env["GITHUB_SHA"] = "4ef156d43d79b5b63b421f7e867ff67d57ee42d8";
 
     manifest = mockManifest();
@@ -401,6 +404,15 @@ describe("main", () => {
 
     expect(core.warning).toHaveBeenCalledWith(
       "BOM character detected at the beginning of the manifest JSON file. Please remove the BOM from the file as it does not conform to the JSON spec (https://datatracker.ietf.org/doc/html/rfc7159#section-8.1) and may cause issues regarding interoperability.",
+    );
+  });
+
+  it("writes the target location to GITHUB_ENV", async () => {
+    await run();
+
+    expect(appendFileSync).toHaveBeenCalledWith(
+      "github_env.txt",
+      `BeatSaberDir=${__dirname}\\BeatSaberBindings`,
     );
   });
 

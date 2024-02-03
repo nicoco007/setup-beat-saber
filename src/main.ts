@@ -132,6 +132,8 @@ export async function run() {
       error(`Mod '${depName}' version '${depVersion}' not found.`);
     }
   }
+
+  fs.appendFileSync(process.env["GITHUB_ENV"]!, `BeatSaberDir=${extractPath}`);
 }
 
 async function fetchJson<T>(url: string): Promise<T> {

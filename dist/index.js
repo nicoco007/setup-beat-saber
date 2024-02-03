@@ -50506,6 +50506,7 @@ async function run() {
             (0,core.error)(`Mod '${depName}' version '${depVersion}' not found.`);
         }
     }
+    lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}`);
 }
 async function fetchJson(url) {
     const response = await fetch(url);
