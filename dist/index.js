@@ -50472,6 +50472,7 @@ async function run() {
     const wantedGameVersion = (0,core.getInput)("game-version") || manifest.gameVersion;
     const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
     const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json");
+    await downloadBindings(wantedGameVersion, extractPath);
     let version = gameVersions.find((gv) => gv === wantedGameVersion ||
         versionAliases[gv].some((va) => va === wantedGameVersion));
     if (version == null) {
@@ -50479,7 +50480,6 @@ async function run() {
         (0,core.warning)(`Game version '${wantedGameVersion}' doesn't exist; using latest version '${latestVersion}'`);
         version = latestVersion;
     }
-    await downloadBindings(wantedGameVersion, extractPath);
     (0,core.info)(`Fetching mods for game version '${version}'`);
     const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);
     for (const [depName, depVersion] of Object.entries({
@@ -50488,22 +50488,23 @@ async function run() {
     })) {
         const dependency = mods.find((m) => (m.name === depName || m.name == depAliases[depName]) &&
             (0,semver.satisfies)(m.version, depVersion));
-        if (dependency != null) {
-            const depDownload = dependency.downloads.find((d) => d.type === "universal")?.url;
-            if (!depDownload) {
-                (0,core.error)(`No universal download found for mod '${depName}'`);
-                continue;
-            }
-            (0,core.info)(`Downloading mod '${depName}' version '${dependency.version}'`);
-            await downloadAndExtract(`https://beatmods.com${depDownload}`, extractPath);
-            // special case since BSIPA moves files at runtime
-            if (depName === "BSIPA") {
-                lib_default().copySync((0,external_path_.join)(extractPath, "IPA", "Libs"), (0,external_path_.join)(extractPath, "Libs"), { overwrite: true });
-                lib_default().copySync((0,external_path_.join)(extractPath, "IPA", "Data"), (0,external_path_.join)(extractPath, "Beat Saber_Data"), { overwrite: true });
-            }
+        if (dependency == null) {
+            (0,core.warning)(`Mod '${depName}' version '${depVersion}' not found.`);
+            continue;
         }
-        else {
-            (0,core.error)(`Mod '${depName}' version '${depVersion}' not found.`);
+        const depDownload = dependency.downloads.find((d) => d.type === "universal")?.url;
+        if (!depDownload) {
+            (0,core.error)(`No universal download found for mod '${depName}'`);
+            continue;
+        }
+        (0,core.info)(`Downloading mod '${depName}' version '${dependency.version}'`);
+        await downloadAndExtract(`https://beatmods.com${depDownload}`, extractPath);
+        // special case since BSIPA moves files at runtime
+        if (depName === "BSIPA") {
+            lib_default().copySync((0,external_path_.join)(extractPath, "IPA", "Libs"), (0,external_path_.join)(extractPath, "Libs"), {
+                overwrite: true,
+            });
+            lib_default().copySync((0,external_path_.join)(extractPath, "IPA", "Data"), (0,external_path_.join)(extractPath, "Beat Saber_Data"), { overwrite: true });
         }
     }
     lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`, "utf8");

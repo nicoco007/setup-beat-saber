@@ -69,6 +69,8 @@ export async function run() {
     "https://alias.beatmods.com/aliases.json",
   );
 
+  await downloadBindings(wantedGameVersion, extractPath);
+
   let version = gameVersions.find(
     (gv) =>
       gv === wantedGameVersion ||
@@ -81,8 +83,6 @@ export async function run() {
     );
     version = latestVersion;
   }
-
-  await downloadBindings(wantedGameVersion, extractPath);
 
   info(`Fetching mods for game version '${version}'`);
   const mods = await fetchJson<Mod[]>(
@@ -99,37 +99,33 @@ export async function run() {
         satisfies(m.version, depVersion as string),
     );
 
-    if (dependency != null) {
-      const depDownload = dependency.downloads.find(
-        (d) => d.type === "universal",
-      )?.url;
+    if (dependency == null) {
+      warning(`Mod '${depName}' version '${depVersion}' not found.`);
+      continue;
+    }
 
-      if (!depDownload) {
-        error(`No universal download found for mod '${depName}'`);
-        continue;
-      }
+    const depDownload = dependency.downloads.find(
+      (d) => d.type === "universal",
+    )?.url;
 
-      info(`Downloading mod '${depName}' version '${dependency.version}'`);
-      await downloadAndExtract(
-        `https://beatmods.com${depDownload}`,
-        extractPath,
+    if (!depDownload) {
+      error(`No universal download found for mod '${depName}'`);
+      continue;
+    }
+
+    info(`Downloading mod '${depName}' version '${dependency.version}'`);
+    await downloadAndExtract(`https://beatmods.com${depDownload}`, extractPath);
+
+    // special case since BSIPA moves files at runtime
+    if (depName === "BSIPA") {
+      fs.copySync(join(extractPath, "IPA", "Libs"), join(extractPath, "Libs"), {
+        overwrite: true,
+      });
+      fs.copySync(
+        join(extractPath, "IPA", "Data"),
+        join(extractPath, "Beat Saber_Data"),
+        { overwrite: true },
       );
-
-      // special case since BSIPA moves files at runtime
-      if (depName === "BSIPA") {
-        fs.copySync(
-          join(extractPath, "IPA", "Libs"),
-          join(extractPath, "Libs"),
-          { overwrite: true },
-        );
-        fs.copySync(
-          join(extractPath, "IPA", "Data"),
-          join(extractPath, "Beat Saber_Data"),
-          { overwrite: true },
-        );
-      }
-    } else {
-      error(`Mod '${depName}' version '${depVersion}' not found.`);
     }
   }
 

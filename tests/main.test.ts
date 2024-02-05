@@ -377,22 +377,22 @@ describe("main", () => {
     );
   });
 
-  it("logs error for missing mods", async () => {
+  it("logs warning for missing mods", async () => {
     mockManifest({ dependsOn: { MissingMod: "^1.0.0" } });
 
     await run();
 
-    expect(core.error).toHaveBeenCalledWith(
+    expect(core.warning).toHaveBeenCalledWith(
       "Mod 'MissingMod' version '^1.0.0' not found.",
     );
   });
 
-  it("logs error for missing versions", async () => {
+  it("logs warning for missing versions", async () => {
     mockManifest({ dependsOn: { BeatSaverSharp: "^2000.0.0" } });
 
     await run();
 
-    expect(core.error).toHaveBeenCalledWith(
+    expect(core.warning).toHaveBeenCalledWith(
       "Mod 'BeatSaverSharp' version '^2000.0.0' not found.",
     );
   });
