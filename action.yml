@@ -9,9 +9,8 @@ inputs:
     description: Token used to download bindings
     required: true
   manifest:
-    description: Path to manifest.json
+    description: Path to the BSIPA manifest. Required if project-path is not set.
     required: false
-    default: ${{ github.workspace }}/manifest.json
   path:
     description: Where to unpack dependencies
     required: false
@@ -31,6 +30,17 @@ inputs:
     description: 'The format of version tags. {0} is replaced by the version from the manifest.'
     required: false
     default: 'v{0}'
+  project-path:
+    description: 'The path to the project (csproj file) that will be built.'
+    required: false
+  project-configuration:
+    description: 'The configuration to use when fetching properties from the project. Defaults to `Release`.'
+    required: false
+    default: 'Release'
+  manifest-path-property:
+    description: 'The name of the property in the project file that points to the manifest. Defaults to `ManifestPath`.'
+    required: false
+    default: 'ManifestPath'
 runs:
   using: node20
   main: dist/index.js

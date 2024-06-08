@@ -4,10 +4,31 @@ import { satisfies } from "semver";
 import decompress from "decompress";
 import fs from "fs-extra";
 import { join } from "path";
+import { spawn } from "child_process";
 
 export async function run() {
-  const manifestPath = getInput("manifest");
-  const extractPath = getInput("path");
+  const projectPath = getInput("project-path");
+  let manifestPath: string;
+
+  if (projectPath.length) {
+    const projectConfiguration = getInput("project-configuration");
+    const propertyName = getInput("manifest-path-property");
+
+    try {
+      manifestPath = await getProjectManifestPath(
+        projectPath,
+        projectConfiguration,
+        propertyName,
+      );
+    } catch (err) {
+      error(
+        `Failed to get manifest path from project: ${err?.toString() || "Unknown error"}`,
+      );
+      return;
+    }
+  } else {
+    manifestPath = getInput("manifest", { required: true });
+  }
 
   const depAliases = JSON.parse(getInput("aliases") || "{}");
   const additionalDependencies = JSON.parse(
@@ -35,6 +56,31 @@ export async function run() {
     );
   }
 
+  const wantedGameVersion = getInput("game-version") || manifest.gameVersion;
+
+  const gameVersions = await fetchJson<string[]>(
+    "https://versions.beatmods.com/versions.json",
+  );
+  const versionAliases = await fetchJson<VersionAliasCollection>(
+    "https://alias.beatmods.com/aliases.json",
+  );
+
+  const extractPath = getInput("path");
+  await downloadBindings(wantedGameVersion, extractPath);
+
+  let gameVersion = gameVersions.find(
+    (gv) =>
+      gv === wantedGameVersion ||
+      versionAliases[gv].some((va) => va === wantedGameVersion),
+  );
+  if (gameVersion == null) {
+    const latestVersion = gameVersions[0];
+    warning(
+      `Game version '${wantedGameVersion}' doesn't exist; using latest version '${latestVersion}'`,
+    );
+    gameVersion = latestVersion;
+  }
+
   const versionWithPrerelease = match.groups["prerelease"];
 
   if (process.env["GITHUB_REF_TYPE"] == "tag") {
@@ -49,44 +95,20 @@ export async function run() {
     }
 
     info(`Using Git tag '${gitTag}'`);
-    manifest.version = versionWithPrerelease;
+    manifest.version = `${versionWithPrerelease}+bs.${gameVersion}`;
   } else {
     const hash = process.env["GITHUB_SHA"];
     info(`Using Git hash '${hash}'`);
-    manifest.version = `${versionWithPrerelease}+git.${hash}`;
+    manifest.version = `${versionWithPrerelease}+bs.${gameVersion}.git.${hash}`;
   }
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), {
     encoding: "utf8",
   });
 
-  const wantedGameVersion = getInput("game-version") || manifest.gameVersion;
-
-  const gameVersions = await fetchJson<string[]>(
-    "https://versions.beatmods.com/versions.json",
-  );
-  const versionAliases = await fetchJson<VersionAliasCollection>(
-    "https://alias.beatmods.com/aliases.json",
-  );
-
-  await downloadBindings(wantedGameVersion, extractPath);
-
-  let version = gameVersions.find(
-    (gv) =>
-      gv === wantedGameVersion ||
-      versionAliases[gv].some((va) => va === wantedGameVersion),
-  );
-  if (version == null) {
-    const latestVersion = gameVersions[0];
-    warning(
-      `Game version '${wantedGameVersion}' doesn't exist; using latest version '${latestVersion}'`,
-    );
-    version = latestVersion;
-  }
-
-  info(`Fetching mods for game version '${version}'`);
+  info(`Fetching mods for game version '${gameVersion}'`);
   const mods = await fetchJson<Mod[]>(
-    `https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`,
+    `https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${gameVersion}`,
   );
 
   for (const [depName, depVersion] of Object.entries({
@@ -182,6 +204,40 @@ async function downloadBindings(version: string, extractPath: string) {
       },
     },
   );
+}
+
+async function getProjectManifestPath(
+  projectPath: string,
+  configuration: string,
+  propertyName: string,
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const proc = spawn("dotnet", [
+      "build",
+      projectPath,
+      "-c",
+      configuration,
+      "-getProperty:" + propertyName,
+    ]);
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (data: string) => {
+      stdout += data;
+    });
+
+    proc.stderr.on("data", (data: string) => {
+      stderr += data;
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(stderr.trim()));
+      }
+    });
+  });
 }
 
 type VersionAliasCollection = { [key: string]: string[] };

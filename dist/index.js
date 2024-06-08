@@ -50426,6 +50426,8 @@ var lib = __nccwpck_require__(5630);
 var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 // EXTERNAL MODULE: external "path"
 var external_path_ = __nccwpck_require__(1017);
+;// CONCATENATED MODULE: external "child_process"
+const external_child_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("child_process");
 ;// CONCATENATED MODULE: ./src/main.ts
 
 
@@ -50433,9 +50435,24 @@ var external_path_ = __nccwpck_require__(1017);
 
 
 
+
 async function run() {
-    const manifestPath = (0,core.getInput)("manifest");
-    const extractPath = (0,core.getInput)("path");
+    const projectPath = (0,core.getInput)("project-path");
+    let manifestPath;
+    if (projectPath.length) {
+        const projectConfiguration = (0,core.getInput)("project-configuration");
+        const propertyName = (0,core.getInput)("manifest-path-property");
+        try {
+            manifestPath = await getProjectManifestPath(projectPath, projectConfiguration, propertyName);
+        }
+        catch (err) {
+            (0,core.error)(`Failed to get manifest path from project: ${err?.toString() || "Unknown error"}`);
+            return;
+        }
+    }
+    else {
+        manifestPath = (0,core.getInput)("manifest", { required: true });
+    }
     const depAliases = JSON.parse((0,core.getInput)("aliases") || "{}");
     const additionalDependencies = JSON.parse((0,core.getInput)("additional-dependencies") || "{}");
     let manifestStringData = lib_default().readFileSync(manifestPath, "utf8");
@@ -50450,6 +50467,18 @@ async function run() {
     if (!match?.groups) {
         throw new Error(`Could not parse '${manifest.version}' as a semantic version`);
     }
+    const wantedGameVersion = (0,core.getInput)("game-version") || manifest.gameVersion;
+    const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
+    const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json");
+    const extractPath = (0,core.getInput)("path");
+    await downloadBindings(wantedGameVersion, extractPath);
+    let gameVersion = gameVersions.find((gv) => gv === wantedGameVersion ||
+        versionAliases[gv].some((va) => va === wantedGameVersion));
+    if (gameVersion == null) {
+        const latestVersion = gameVersions[0];
+        (0,core.warning)(`Game version '${wantedGameVersion}' doesn't exist; using latest version '${latestVersion}'`);
+        gameVersion = latestVersion;
+    }
     const versionWithPrerelease = match.groups["prerelease"];
     if (process.env["GITHUB_REF_TYPE"] == "tag") {
         const gitTag = process.env["GITHUB_REF_NAME"];
@@ -50459,29 +50488,18 @@ async function run() {
             throw new Error(`Git tag '${gitTag}' does not match manifest version '${builtTag}'`);
         }
         (0,core.info)(`Using Git tag '${gitTag}'`);
-        manifest.version = versionWithPrerelease;
+        manifest.version = `${versionWithPrerelease}+bs.${gameVersion}`;
     }
     else {
         const hash = process.env["GITHUB_SHA"];
         (0,core.info)(`Using Git hash '${hash}'`);
-        manifest.version = `${versionWithPrerelease}+git.${hash}`;
+        manifest.version = `${versionWithPrerelease}+bs.${gameVersion}.git.${hash}`;
     }
     lib_default().writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), {
         encoding: "utf8",
     });
-    const wantedGameVersion = (0,core.getInput)("game-version") || manifest.gameVersion;
-    const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
-    const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json");
-    await downloadBindings(wantedGameVersion, extractPath);
-    let version = gameVersions.find((gv) => gv === wantedGameVersion ||
-        versionAliases[gv].some((va) => va === wantedGameVersion));
-    if (version == null) {
-        const latestVersion = gameVersions[0];
-        (0,core.warning)(`Game version '${wantedGameVersion}' doesn't exist; using latest version '${latestVersion}'`);
-        version = latestVersion;
-    }
-    (0,core.info)(`Fetching mods for game version '${version}'`);
-    const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${version}`);
+    (0,core.info)(`Fetching mods for game version '${gameVersion}'`);
+    const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${gameVersion}`);
     for (const [depName, depVersion] of Object.entries({
         ...manifest.dependsOn,
         ...additionalDependencies,
@@ -50543,6 +50561,33 @@ async function downloadBindings(version, extractPath) {
             }
             return file;
         },
+    });
+}
+async function getProjectManifestPath(projectPath, configuration, propertyName) {
+    return new Promise((resolve, reject) => {
+        const proc = (0,external_child_process_namespaceObject.spawn)("dotnet", [
+            "build",
+            projectPath,
+            "-c",
+            configuration,
+            "-getProperty:" + propertyName,
+        ]);
+        let stdout = "";
+        let stderr = "";
+        proc.stdout.on("data", (data) => {
+            stdout += data;
+        });
+        proc.stderr.on("data", (data) => {
+            stderr += data;
+        });
+        proc.on("close", (code) => {
+            if (code === 0) {
+                resolve(stdout.trim());
+            }
+            else {
+                reject(new Error(stderr.trim()));
+            }
+        });
     });
 }
 

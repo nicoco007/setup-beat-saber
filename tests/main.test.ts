@@ -5,12 +5,16 @@ import * as path from "path";
 import sinon from "sinon";
 import * as nf from "node-fetch";
 import * as ac from "@actions/core";
+import * as child_process from "child_process";
 import fs from "fs-extra";
+import { EventEmitter } from "events";
+import { Readable } from "stream";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fetch = sinon.stub().callsFake((url) => {
   throw new Error(`Unexpected web request to ${url}`);
 });
+const childProcessSpawn = sinon.stub();
 const appendFileSync = sinon.stub();
 const readFileSync = sinon.stub();
 const writeFileSync = sinon.stub();
@@ -24,9 +28,15 @@ jest.unstable_mockModule("node-fetch", () => ({
 jest.unstable_mockModule("@actions/core", () => ({
   ...ac,
   __esModule: true,
-  info: sinon.stub(),
+  info: jest.fn(),
   warning: sinon.stub(),
-  error: sinon.stub(),
+  error: jest.fn(),
+}));
+
+jest.unstable_mockModule("child_process", () => ({
+  ...child_process,
+  __esModule: true,
+  spawn: childProcessSpawn,
 }));
 
 jest.mock("fs-extra", () => ({
@@ -95,7 +105,7 @@ interface Manifest {
 function mockManifest(
   {
     id = "examplemod",
-    version = "0.1.0",
+    version = "0.1.0+dev",
     gameVersion = "1.13.2",
     dependsOn = {
       BSIPA: "^4.1.3",
@@ -104,6 +114,7 @@ function mockManifest(
     },
   }: Partial<Manifest> = {},
   bom = false,
+  path = "manifest.json",
 ): Manifest {
   const manifest = {
     id,
@@ -113,10 +124,23 @@ function mockManifest(
   };
 
   readFileSync
-    .withArgs("manifest.json")
+    .withArgs(path)
     .returns((bom ? "\uFEFF" : "") + JSON.stringify(manifest));
 
   return manifest;
+}
+
+function mockProcess(
+  path: string,
+  args: string[] | undefined = undefined,
+): child_process.ChildProcess {
+  const proc = <child_process.ChildProcess>new EventEmitter();
+  proc.stdout = <Readable>new EventEmitter();
+  proc.stderr = <Readable>new EventEmitter();
+
+  childProcessSpawn.withArgs(path, args || sinon.match.any).returns(proc);
+
+  return proc;
 }
 
 describe("main", () => {
@@ -207,7 +231,8 @@ describe("main", () => {
   it("injects the git hash into the manifest version", async () => {
     await run();
 
-    manifest.version = "0.1.0+git.4ef156d43d79b5b63b421f7e867ff67d57ee42d8";
+    manifest.version =
+      "0.1.0+bs.1.13.2.git.4ef156d43d79b5b63b421f7e867ff67d57ee42d8";
 
     expect(core.info).toHaveBeenCalledWith(
       "Using Git hash '4ef156d43d79b5b63b421f7e867ff67d57ee42d8'",
@@ -225,6 +250,8 @@ describe("main", () => {
 
     await run();
 
+    manifest.version = `0.1.0+bs.1.13.2`;
+
     expect(core.info).toHaveBeenCalledWith("Using Git tag 'v0.1.0'");
     expect(writeFileSync).toHaveBeenCalledWith(
       "manifest.json",
@@ -239,6 +266,8 @@ describe("main", () => {
     process.env["GITHUB_REF_NAME"] = "some-thing/v0.1.0";
 
     await run();
+
+    manifest.version = `0.1.0+bs.1.13.2`;
 
     expect(core.info).toHaveBeenCalledWith("Using Git tag 'some-thing/v0.1.0'");
     expect(writeFileSync).toHaveBeenCalledWith(
@@ -262,7 +291,7 @@ describe("main", () => {
 
     // this sucks but I'm too lazy to make it better
     expect(core.info).toHaveBeenCalledWith(
-      "Retrieved manifest of 'examplemod' version '0.1.0'",
+      "Retrieved manifest of 'examplemod' version '0.1.0+dev'",
     );
     expect(core.info).toHaveBeenCalledWith(
       "Fetching mods for game version '1.13.2'",
@@ -288,7 +317,7 @@ describe("main", () => {
     );
 
     expect(core.info).toHaveBeenCalledWith(
-      "Retrieved manifest of 'examplemod' version '0.1.0'",
+      "Retrieved manifest of 'examplemod' version '0.1.0+dev'",
     );
     expect(core.info).toHaveBeenCalledWith(
       "Fetching mods for game version '1.16.1'",
@@ -308,7 +337,7 @@ describe("main", () => {
     await run();
 
     expect(core.info).toHaveBeenCalledWith(
-      "Retrieved manifest of 'examplemod' version '0.1.0'",
+      "Retrieved manifest of 'examplemod' version '0.1.0+dev'",
     );
     expect(core.info).toHaveBeenCalledWith(
       "Fetching mods for game version '1.13.2'",
@@ -327,7 +356,7 @@ describe("main", () => {
     await run();
 
     expect(core.info).toHaveBeenCalledWith(
-      "Retrieved manifest of 'examplemod' version '0.1.0'",
+      "Retrieved manifest of 'examplemod' version '0.1.0+dev'",
     );
     expect(core.info).toHaveBeenCalledWith(
       "Fetching mods for game version '1.13.2'",
@@ -416,6 +445,51 @@ describe("main", () => {
       "github_env.txt",
       `BeatSaberDir=${expectedPath}\nGameDirectory=${expectedPath}\n`,
       "utf8",
+    );
+  });
+
+  it("uses the project file to get the manifest path if specified", async () => {
+    const projectPath = path.join(__dirname, "files", "dummy.csproj");
+    setInput("project-path", projectPath);
+    setInput("project-configuration", "Release");
+    setInput("manifest-path-property", "ManifestPath");
+
+    mockManifest({}, false, "dummy_manifest.json");
+    const proc = mockProcess("dotnet", [
+      "build",
+      projectPath,
+      "-c",
+      "Release",
+      "-getProperty:ManifestPath",
+    ]);
+
+    const promise = run();
+
+    proc.stdout!.emit("data", "dummy_manifest.json");
+    proc.emit("close", 0);
+
+    await promise;
+
+    expect(readFileSync).toHaveBeenCalledWith("dummy_manifest.json");
+  });
+
+  it("logs an error and exits if the manifest specified in the project cannot be read", async () => {
+    setInput("project-path", path.join(__dirname, "files", "dummy.csproj"));
+    setInput("project-configuration", "Release");
+    setInput("manifest-path-property", "ManifestPath");
+
+    mockManifest({}, false, "dummy_manifest.json");
+    const proc = mockProcess("dotnet");
+
+    const promise = run();
+
+    proc.stderr!.emit("data", "oh noes!");
+    proc.emit("close", 1);
+
+    await promise;
+
+    expect(core.error).toHaveBeenCalledWith(
+      "Failed to get manifest path from project: Error: oh noes!",
     );
   });
 
