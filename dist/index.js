@@ -50025,7 +50025,7 @@ async function run() {
             lib_default().copySync(external_path_.join(extractPath, "IPA", "Libs"), external_path_.join(extractPath, "Libs"), {
                 overwrite: true,
             });
-            lib_default().copySync(external_path_.join(extractPath, "IPA", "Data"), external_path_.join(extractPath, "Beat Saber_Data"), { overwrite: true });
+            lib_default().copySync(external_path_.join(extractPath, "IPA", "Data"), external_path_.join(extractPath, "Beat Saber_Data"), { overwrite: false });
         }
     }
     lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`, "utf8");

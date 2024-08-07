@@ -150,7 +150,7 @@ export async function run() {
       fs.copySync(
         path.join(extractPath, "IPA", "Data"),
         path.join(extractPath, "Beat Saber_Data"),
-        { overwrite: true },
+        { overwrite: false }, // overwriting netstandard.dll causes issues
       );
     }
   }
