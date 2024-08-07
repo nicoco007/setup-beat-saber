@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import { satisfies } from "semver";
 import decompress from "decompress";
 import fs from "fs-extra";
-import { join } from "path";
+import * as path from "path";
 import { spawn } from "child_process";
 
 export async function run() {
@@ -66,7 +66,7 @@ export async function run() {
   );
 
   const extractPath = getInput("path");
-  await downloadBindings(wantedGameVersion, extractPath);
+  await downloadReferenceAssemblies(wantedGameVersion, extractPath);
 
   let gameVersion = gameVersions.find(
     (gv) =>
@@ -76,7 +76,7 @@ export async function run() {
   if (gameVersion == null) {
     const latestVersion = gameVersions[0];
     warning(
-      `Game version '${wantedGameVersion}' doesn't exist; using latest version '${latestVersion}'`,
+      `Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${latestVersion}'`,
     );
     gameVersion = latestVersion;
   }
@@ -95,11 +95,11 @@ export async function run() {
     }
 
     info(`Using Git tag '${gitTag}'`);
-    manifest.version = `${versionWithPrerelease}+bs.${gameVersion}`;
+    manifest.version = `${versionWithPrerelease}+bs.${wantedGameVersion}`;
   } else {
     const hash = process.env["GITHUB_SHA"];
     info(`Using Git hash '${hash}'`);
-    manifest.version = `${versionWithPrerelease}+bs.${gameVersion}.git.${hash}`;
+    manifest.version = `${versionWithPrerelease}+bs.${wantedGameVersion}.git.${hash}`;
   }
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), {
@@ -140,12 +140,12 @@ export async function run() {
 
     // special case since BSIPA moves files at runtime
     if (depName === "BSIPA") {
-      fs.copySync(join(extractPath, "IPA", "Libs"), join(extractPath, "Libs"), {
+      fs.copySync(path.join(extractPath, "IPA", "Libs"), path.join(extractPath, "Libs"), {
         overwrite: true,
       });
       fs.copySync(
-        join(extractPath, "IPA", "Data"),
-        join(extractPath, "Beat Saber_Data"),
+        path.join(extractPath, "IPA", "Data"),
+        path.join(extractPath, "Beat Saber_Data"),
         { overwrite: true },
       );
     }
@@ -171,16 +171,16 @@ async function downloadAndExtract(url: string, extractPath: string) {
   });
 }
 
-async function downloadBindings(version: string, extractPath: string) {
+async function downloadReferenceAssemblies(version: string, extractPath: string) {
   const accessToken = getInput("access-token", { required: true });
-  const url = `https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v${version}`;
+  const url = `https://api.github.com/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v${version}`;
   const headers = {
     Accept: "application/vnd.github+json",
     Authorization: `Bearer ${accessToken}`,
     "User-Agent": "setup-beat-saber",
     "X-GitHub-Api-Version": "2022-11-28",
   };
-  info(`Downloading bindings for version '${version}'`);
+  info(`Downloading reference assemblies for version '${version}'`);
   const response = await fetch(url, { method: "GET", headers });
 
   if (response.status != 200) {
@@ -191,13 +191,13 @@ async function downloadBindings(version: string, extractPath: string) {
 
   await decompress(
     Buffer.from(await response.arrayBuffer()),
-    join(extractPath, "Beat Saber_Data", "Managed"),
+    extractPath,
     {
       // https://github.com/kevva/decompress/issues/46#issuecomment-428018719
       filter: (file) => !file.path.endsWith("/"),
       map: (file) => {
         if (file.type == "file") {
-          file.path = file.path.substring(file.path.indexOf("/") + 1);
+          file.path = file.path.split('/').slice(2).join(path.sep);
         }
 
         return file;

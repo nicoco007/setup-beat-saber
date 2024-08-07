@@ -67,7 +67,7 @@ function mockFetch(url: string, body: nf.BodyInit | undefined, status = 200) {
 function mockGitHubApiResponse(response: nf.Response | undefined = undefined) {
   response ||= new nf.Response(
     fs.createReadStream(
-      path.join(__dirname, "files", "beat-saber-bindings.zip"),
+      path.join(__dirname, "files", "beat-saber-reference-assemblies.zip"),
     ),
     {
       status: 200,
@@ -79,7 +79,7 @@ function mockGitHubApiResponse(response: nf.Response | undefined = undefined) {
     .calledWith(
       expect.stringMatching(
         new RegExp(
-          "https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v.*",
+          "https://api.github.com/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v.*",
         ),
       ),
       {
@@ -148,7 +148,7 @@ describe("main", () => {
   let manifest: Manifest;
 
   beforeEach(() => {
-    setInput("path", path.join(__dirname, "BeatSaberBindings"));
+    setInput("path", path.join(__dirname, "BeatSaberReferenceAssemblies"));
     setInput("access-token", "github_pat_whatever");
     setInput("manifest", "manifest.json");
 
@@ -199,7 +199,7 @@ describe("main", () => {
       fs.existsSync(
         path.join(
           __dirname,
-          "BeatSaberBindings",
+          "BeatSaberReferenceAssemblies",
           "Beat Saber_Data",
           "Managed",
           "Main.dll",
@@ -313,7 +313,7 @@ describe("main", () => {
     await run();
 
     expect(fetch).toHaveBeenCalledWith(
-      "https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v1.16.2",
+      "https://api.github.com/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v1.16.2",
       expect.any(Object),
     );
 
@@ -382,7 +382,7 @@ describe("main", () => {
     await run();
 
     expect(core.warning).toHaveBeenCalledWith(
-      "Game version '1.2.3' doesn't exist; using latest version '1.16.1'",
+      "Game version '1.2.3' doesn't exist; using mods from latest version '1.16.1'",
     );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.16.1",
@@ -440,7 +440,7 @@ describe("main", () => {
   it("writes the target location to GITHUB_ENV", async () => {
     await run();
 
-    const expectedPath = path.join(__dirname, "BeatSaberBindings");
+    const expectedPath = path.join(__dirname, "BeatSaberReferenceAssemblies");
 
     expect(appendFileSync).toHaveBeenCalledWith(
       "github_env.txt",
@@ -495,7 +495,7 @@ describe("main", () => {
   });
 
   afterEach(() => {
-    fs.rmSync(path.join(__dirname, "BeatSaberBindings"), {
+    fs.rmSync(path.join(__dirname, "BeatSaberReferenceAssemblies"), {
       recursive: true,
       force: true,
     });
