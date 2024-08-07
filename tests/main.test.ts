@@ -2,22 +2,22 @@ import { jest } from "@jest/globals";
 import { fileURLToPath } from "url";
 import * as process from "process";
 import * as path from "path";
-import sinon from "sinon";
 import * as nf from "node-fetch";
 import * as ac from "@actions/core";
 import * as child_process from "child_process";
 import fs from "fs-extra";
 import { EventEmitter } from "events";
 import { Readable } from "stream";
+import { when } from "jest-when";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fetch = sinon.stub().callsFake((url) => {
+const fetch = jest.fn().mockImplementation((url) => {
   throw new Error(`Unexpected web request to ${url}`);
 });
-const childProcessSpawn = sinon.stub();
-const appendFileSync = sinon.stub();
-const readFileSync = sinon.stub();
-const writeFileSync = sinon.stub();
+const childProcessSpawn = jest.fn();
+const appendFileSync = jest.fn();
+const readFileSync = jest.fn();
+const writeFileSync = jest.fn();
 
 jest.unstable_mockModule("node-fetch", () => ({
   ...nf,
@@ -29,7 +29,7 @@ jest.unstable_mockModule("@actions/core", () => ({
   ...ac,
   __esModule: true,
   info: jest.fn(),
-  warning: sinon.stub(),
+  warning: jest.fn(),
   error: jest.fn(),
 }));
 
@@ -54,7 +54,7 @@ function setInput(name: string, value: string) {
 }
 
 function mockFetch(url: string, body: nf.BodyInit | undefined, status = 200) {
-  fetch.withArgs(url).returns(
+  when(fetch).calledWith(url).mockReturnValue(
     new nf.Response(body, {
       status: status,
       headers: new nf.Headers({
@@ -75,9 +75,9 @@ function mockGitHubApiResponse(response: nf.Response | undefined = undefined) {
     },
   );
 
-  fetch
-    .withArgs(
-      sinon.match(
+  when(fetch)
+    .calledWith(
+      expect.stringMatching(
         new RegExp(
           "https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v.*",
         ),
@@ -92,7 +92,7 @@ function mockGitHubApiResponse(response: nf.Response | undefined = undefined) {
         },
       },
     )
-    .callsFake(() => response);
+    .mockImplementation(() => response);
 }
 
 interface Manifest {
@@ -123,9 +123,9 @@ function mockManifest(
     dependsOn,
   };
 
-  readFileSync
-    .withArgs(path)
-    .returns((bom ? "\uFEFF" : "") + JSON.stringify(manifest));
+  when(readFileSync)
+    .calledWith(path, "utf8")
+    .mockReturnValue((bom ? "\uFEFF" : "") + JSON.stringify(manifest));
 
   return manifest;
 }
@@ -138,7 +138,7 @@ function mockProcess(
   proc.stdout = <Readable>new EventEmitter();
   proc.stderr = <Readable>new EventEmitter();
 
-  childProcessSpawn.withArgs(path, args || sinon.match.any).returns(proc);
+  when(childProcessSpawn).calledWith(path, args || expect.anything()).mockReturnValue(proc);
 
   return proc;
 }
@@ -157,9 +157,9 @@ describe("main", () => {
 
     manifest = mockManifest();
 
-    fetch
-      .withArgs(sinon.match(new RegExp("https://beatmods.com/uploads/.*")))
-      .callsFake(
+    when(fetch)
+      .calledWith(expect.stringMatching(new RegExp("https://beatmods.com/uploads/.*")))
+      .mockImplementation(
         () =>
           new nf.Response(
             fs.createReadStream(path.join(__dirname, "files", "dummy.zip")),
@@ -314,6 +314,7 @@ describe("main", () => {
 
     expect(fetch).toHaveBeenCalledWith(
       "https://api.github.com/repos/nicoco007/BeatSaberBindings/zipball/refs/tags/v1.16.2",
+      expect.any(Object),
     );
 
     expect(core.info).toHaveBeenCalledWith(
@@ -470,7 +471,7 @@ describe("main", () => {
 
     await promise;
 
-    expect(readFileSync).toHaveBeenCalledWith("dummy_manifest.json");
+    expect(readFileSync).toHaveBeenCalledWith("dummy_manifest.json", "utf8");
   });
 
   it("logs an error and exits if the manifest specified in the project cannot be read", async () => {
@@ -498,7 +499,7 @@ describe("main", () => {
       recursive: true,
       force: true,
     });
-    sinon.restore();
+    
     jest.resetAllMocks();
 
     for (const key in process.env) {
