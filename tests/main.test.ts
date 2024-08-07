@@ -54,14 +54,16 @@ function setInput(name: string, value: string) {
 }
 
 function mockFetch(url: string, body: nf.BodyInit | undefined, status = 200) {
-  when(fetch).calledWith(url).mockReturnValue(
-    new nf.Response(body, {
-      status: status,
-      headers: new nf.Headers({
-        "Content-Type": "application/json",
+  when(fetch)
+    .calledWith(url)
+    .mockReturnValue(
+      new nf.Response(body, {
+        status: status,
+        headers: new nf.Headers({
+          "Content-Type": "application/json",
+        }),
       }),
-    }),
-  );
+    );
 }
 
 function mockGitHubApiResponse(response: nf.Response | undefined = undefined) {
@@ -138,7 +140,9 @@ function mockProcess(
   proc.stdout = <Readable>new EventEmitter();
   proc.stderr = <Readable>new EventEmitter();
 
-  when(childProcessSpawn).calledWith(path, args || expect.anything()).mockReturnValue(proc);
+  when(childProcessSpawn)
+    .calledWith(path, args || expect.anything())
+    .mockReturnValue(proc);
 
   return proc;
 }
@@ -158,7 +162,9 @@ describe("main", () => {
     manifest = mockManifest();
 
     when(fetch)
-      .calledWith(expect.stringMatching(new RegExp("https://beatmods.com/uploads/.*")))
+      .calledWith(
+        expect.stringMatching(new RegExp("https://beatmods.com/uploads/.*")),
+      )
       .mockImplementation(
         () =>
           new nf.Response(
@@ -499,7 +505,7 @@ describe("main", () => {
       recursive: true,
       force: true,
     });
-    
+
     jest.resetAllMocks();
 
     for (const key in process.env) {

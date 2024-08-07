@@ -140,9 +140,13 @@ export async function run() {
 
     // special case since BSIPA moves files at runtime
     if (depName === "BSIPA") {
-      fs.copySync(path.join(extractPath, "IPA", "Libs"), path.join(extractPath, "Libs"), {
-        overwrite: true,
-      });
+      fs.copySync(
+        path.join(extractPath, "IPA", "Libs"),
+        path.join(extractPath, "Libs"),
+        {
+          overwrite: true,
+        },
+      );
       fs.copySync(
         path.join(extractPath, "IPA", "Data"),
         path.join(extractPath, "Beat Saber_Data"),
@@ -171,7 +175,10 @@ async function downloadAndExtract(url: string, extractPath: string) {
   });
 }
 
-async function downloadReferenceAssemblies(version: string, extractPath: string) {
+async function downloadReferenceAssemblies(
+  version: string,
+  extractPath: string,
+) {
   const accessToken = getInput("access-token", { required: true });
   const url = `https://api.github.com/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v${version}`;
   const headers = {
@@ -189,21 +196,17 @@ async function downloadReferenceAssemblies(version: string, extractPath: string)
     );
   }
 
-  await decompress(
-    Buffer.from(await response.arrayBuffer()),
-    extractPath,
-    {
-      // https://github.com/kevva/decompress/issues/46#issuecomment-428018719
-      filter: (file) => !file.path.endsWith("/"),
-      map: (file) => {
-        if (file.type == "file") {
-          file.path = file.path.split('/').slice(2).join(path.sep);
-        }
+  await decompress(Buffer.from(await response.arrayBuffer()), extractPath, {
+    // https://github.com/kevva/decompress/issues/46#issuecomment-428018719
+    filter: (file) => !file.path.endsWith("/"),
+    map: (file) => {
+      if (file.type == "file") {
+        file.path = file.path.split("/").slice(2).join(path.sep);
+      }
 
-        return file;
-      },
+      return file;
     },
-  );
+  });
 }
 
 async function getProjectManifestPath(
