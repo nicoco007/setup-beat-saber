@@ -8,39 +8,28 @@ inputs:
   access-token:
     description: Token used to download bindings
     required: true
-  manifest:
-    description: Path to the BSIPA manifest. Required if project-path is not set.
-    required: false
   path:
     description: Where to unpack dependencies
-    required: false
+    required: true
     default: ${{ runner.temp }}/BeatSaberBindings
   aliases:
     description: Dictionary of dependency ID aliases
-    required: false
+    required: true
     default: '{}'
   game-version:
     description: Game version to use (overrides game version from manifest)
     required: false
   additional-dependencies:
     description: Additional dependencies required for build but not at runtime (e.g. optional dependencies)
-    required: false
+    required: true
     default: '{}'
-  tag-format:
-    description: 'The format of version tags. {0} is replaced by the version from the manifest.'
-    required: false
-    default: 'v{0}'
   project-path:
     description: 'The path to the project (csproj file) that will be built.'
-    required: false
+    required: true
   project-configuration:
     description: 'The configuration to use when fetching properties from the project. Defaults to `Release`.'
-    required: false
+    required: true
     default: 'Release'
-  manifest-path-property:
-    description: 'The name of the property in the project file that points to the manifest. Defaults to `ManifestPath`.'
-    required: false
-    default: 'ManifestPath'
 runs:
   using: node20
   main: dist/index.js

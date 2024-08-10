@@ -7,56 +7,12 @@ import * as path from "path";
 import { spawn } from "child_process";
 
 export async function run() {
-  const projectPath = getInput("project-path");
-  let manifestPath: string;
-
-  if (projectPath.length) {
-    const projectConfiguration = getInput("project-configuration");
-    const propertyName = getInput("manifest-path-property");
-
-    try {
-      manifestPath = await getProjectManifestPath(
-        projectPath,
-        projectConfiguration,
-        propertyName,
-      );
-    } catch (err) {
-      error(
-        `Failed to get manifest path from project: ${err?.toString() || "Unknown error"}`,
-      );
-      return;
-    }
-  } else {
-    manifestPath = getInput("manifest", { required: true });
-  }
-
-  const depAliases = JSON.parse(getInput("aliases") || "{}");
-  const additionalDependencies = JSON.parse(
-    getInput("additional-dependencies") || "{}",
+  const projectInfo = await getProjectInfo(
+    getInput("project-path", { required: true }),
+    getInput("project-configuration", { required: true }),
   );
 
-  let manifestStringData = fs.readFileSync(manifestPath, "utf8");
-  if (manifestStringData.startsWith("\uFEFF")) {
-    warning(
-      "BOM character detected at the beginning of the manifest JSON file. Please remove the BOM from the file as it does not conform to the JSON spec (https://datatracker.ietf.org/doc/html/rfc7159#section-8.1) and may cause issues regarding interoperability.",
-    );
-    manifestStringData = manifestStringData.slice(1);
-  }
-
-  const manifest = JSON.parse(manifestStringData);
-  info(`Retrieved manifest of '${manifest.id}' version '${manifest.version}'`);
-
-  const semverRegex =
-    /^(?<prerelease>(?<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?:-(?:(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?)(?:\+(?:[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
-  const match = semverRegex.exec(manifest.version);
-
-  if (!match?.groups) {
-    throw new Error(
-      `Could not parse '${manifest.version}' as a semantic version`,
-    );
-  }
-
-  const wantedGameVersion = getInput("game-version") || manifest.gameVersion;
+  const wantedGameVersion = getInput("game-version") || projectInfo.gameVersion;
 
   const gameVersions = await fetchJson<string[]>(
     "https://versions.beatmods.com/versions.json",
@@ -65,7 +21,7 @@ export async function run() {
     "https://alias.beatmods.com/aliases.json",
   );
 
-  const extractPath = getInput("path");
+  const extractPath = getInput("path", { required: true });
   await downloadReferenceAssemblies(wantedGameVersion, extractPath);
 
   let gameVersion = gameVersions.find(
@@ -81,38 +37,18 @@ export async function run() {
     gameVersion = latestVersion;
   }
 
-  const versionWithPrerelease = match.groups["prerelease"];
-
-  if (process.env["GITHUB_REF_TYPE"] == "tag") {
-    const gitTag = process.env["GITHUB_REF_NAME"];
-    const tagFormat = getInput("tag-format") || "v{0}";
-    const builtTag = tagFormat.replace("{0}", versionWithPrerelease);
-
-    if (gitTag != builtTag) {
-      throw new Error(
-        `Git tag '${gitTag}' does not match manifest version '${builtTag}'`,
-      );
-    }
-
-    info(`Using Git tag '${gitTag}'`);
-    manifest.version = `${versionWithPrerelease}+bs.${wantedGameVersion}`;
-  } else {
-    const hash = process.env["GITHUB_SHA"];
-    info(`Using Git hash '${hash}'`);
-    manifest.version = `${versionWithPrerelease}+bs.${wantedGameVersion}.git.${hash}`;
-  }
-
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4), {
-    encoding: "utf8",
-  });
-
   info(`Fetching mods for game version '${gameVersion}'`);
   const mods = await fetchJson<Mod[]>(
     `https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${gameVersion}`,
   );
 
+  const depAliases = JSON.parse(getInput("aliases", { required: true }));
+  const additionalDependencies = JSON.parse(
+    getInput("additional-dependencies", { required: true }),
+  );
+
   for (const [depName, depVersion] of Object.entries({
-    ...manifest.dependsOn,
+    ...projectInfo.dependencies,
     ...additionalDependencies,
   })) {
     const dependency = mods.find(
@@ -131,14 +67,14 @@ export async function run() {
     )?.url;
 
     if (!depDownload) {
-      error(`No universal download found for mod '${depName}'`);
+      warning(`No universal download found for mod '${depName}'`);
       continue;
     }
 
     info(`Downloading mod '${depName}' version '${dependency.version}'`);
     await downloadAndExtract(`https://beatmods.com${depDownload}`, extractPath);
 
-    // special case since BSIPA moves files at runtime
+    // special case since BSIPA moves files when installed with IPA.exe
     if (depName === "BSIPA") {
       fs.copySync(
         path.join(extractPath, "IPA", "Libs"),
@@ -150,7 +86,6 @@ export async function run() {
       fs.copySync(
         path.join(extractPath, "IPA", "Data"),
         path.join(extractPath, "Beat Saber_Data"),
-        { overwrite: false }, // overwriting netstandard.dll causes issues
       );
     }
   }
@@ -169,6 +104,13 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 async function downloadAndExtract(url: string, extractPath: string) {
   const response = await fetch(url);
+
+  if (response.status != 200) {
+    throw new Error(
+      `Unexpected response status ${response.status} ${response.statusText}`,
+    );
+  }
+
   await decompress(Buffer.from(await response.arrayBuffer()), extractPath, {
     // https://github.com/kevva/decompress/issues/46#issuecomment-428018719
     filter: (file) => !file.path.endsWith("/"),
@@ -209,18 +151,18 @@ async function downloadReferenceAssemblies(
   });
 }
 
-async function getProjectManifestPath(
+async function getProjectInfo(
   projectPath: string,
   configuration: string,
-  propertyName: string,
-): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
+): Promise<ProjectInfo> {
+  return new Promise<ProjectInfo>((resolve, reject) => {
     const proc = spawn("dotnet", [
       "build",
       projectPath,
       "-c",
       configuration,
-      "-getProperty:" + propertyName,
+      "-getProperty:GameVersion",
+      "-getItem:DependsOn",
     ]);
     let stdout = "";
     let stderr = "";
@@ -235,7 +177,24 @@ async function getProjectManifestPath(
 
     proc.on("close", (code) => {
       if (code === 0) {
-        resolve(stdout.trim());
+        try {
+          const data = JSON.parse(stdout.trim()) as Output;
+          resolve({
+            gameVersion: data["Properties"]["GameVersion"]!,
+            dependencies: data["Items"]["DependsOn"].reduce(
+              (
+                obj: { [key: string]: string },
+                d: { [key: string]: string },
+              ) => {
+                obj[d["Identity"]] = d["Version"];
+                return obj;
+              },
+              {},
+            ),
+          });
+        } catch (err) {
+          reject(err);
+        }
       } else {
         reject(new Error(stderr.trim()));
       }
@@ -254,4 +213,14 @@ interface Mod {
 interface ModDownload {
   type: "universal" | "steam" | "oculus";
   url: string;
+}
+
+interface Output {
+  Items: { [key: string]: { [key: string]: string }[] };
+  Properties: { [key: string]: string };
+}
+
+interface ProjectInfo {
+  gameVersion: string;
+  dependencies: { [key: string]: string };
 }
