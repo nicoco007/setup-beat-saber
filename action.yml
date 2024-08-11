@@ -11,7 +11,7 @@ inputs:
   path:
     description: Where to unpack dependencies
     required: true
-    default: ${{ runner.temp }}/BeatSaberBindings
+    default: ${{ runner.temp }}\BeatSaberReferenceAssemblies # it is VERY IMPORTANT that this be a backslash or else ResolveAssemblyReferences will not recognize it properly as a TargetFrameworkDirectory
   aliases:
     description: Dictionary of dependency ID aliases
     required: true
