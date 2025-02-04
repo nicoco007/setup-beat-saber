@@ -163,12 +163,16 @@ export async function run() {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: { "User-Agent": "setup-beat-saber" },
+  });
   return (await response.json()) as T;
 }
 
 async function downloadAndExtract(url: string, extractPath: string) {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: { "User-Agent": "setup-beat-saber" },
+  });
   await decompress(Buffer.from(await response.arrayBuffer()), extractPath, {
     // https://github.com/kevva/decompress/issues/46#issuecomment-428018719
     filter: (file) => !file.path.endsWith("/"),

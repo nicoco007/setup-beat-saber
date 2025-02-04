@@ -11,8 +11,10 @@ import { Readable } from "stream";
 import { when } from "jest-when";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fetch = jest.fn().mockImplementation((url) => {
-  throw new Error(`Unexpected web request to ${url}`);
+const fetch = jest.fn().mockImplementation((url, params) => {
+  throw new Error(
+    `Unexpected web request to ${url} with ${JSON.stringify(params)}`,
+  );
 });
 const childProcessSpawn = jest.fn();
 const appendFileSync = jest.fn();
@@ -55,7 +57,7 @@ function setInput(name: string, value: string) {
 
 function mockFetch(url: string, body: nf.BodyInit | undefined, status = 200) {
   when(fetch)
-    .calledWith(url)
+    .calledWith(url, { headers: { "User-Agent": "setup-beat-saber" } })
     .mockReturnValue(
       new nf.Response(body, {
         status: status,
@@ -164,6 +166,7 @@ describe("main", () => {
     when(fetch)
       .calledWith(
         expect.stringMatching(new RegExp("https://beatmods.com/uploads/.*")),
+        { headers: { "User-Agent": "setup-beat-saber" } },
       )
       .mockImplementation(
         () =>
@@ -392,6 +395,7 @@ describe("main", () => {
     );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.16.1",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
 
