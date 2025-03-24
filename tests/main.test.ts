@@ -11,8 +11,10 @@ import { Readable } from "stream";
 import { when } from "jest-when";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fetch = jest.fn().mockImplementation((url) => {
-  throw new Error(`Unexpected web request to ${url}`);
+const fetch = jest.fn().mockImplementation((url, params) => {
+  throw new Error(
+    `Unexpected web request to ${url} with ${JSON.stringify(params)}`,
+  );
 });
 const childProcessSpawn = jest.fn();
 const appendFileSync = jest.fn();
@@ -55,7 +57,7 @@ function setInput(name: string, value: string) {
 
 function mockFetch(url: string, body: nf.BodyInit | undefined, status = 200) {
   when(fetch)
-    .calledWith(url)
+    .calledWith(url, { headers: { "User-Agent": "setup-beat-saber" } })
     .mockReturnValue(
       new nf.Response(body, {
         status: status,
@@ -101,6 +103,7 @@ function mockBeatModsResponse(response: nf.Response | undefined = undefined) {
   when(fetch)
     .calledWith(
       expect.stringMatching(new RegExp("https://beatmods.com/uploads/.*")),
+      { headers: { "User-Agent": "setup-beat-saber" } },
     )
     .mockImplementation(
       () =>
@@ -241,15 +244,19 @@ describe("main", () => {
 
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.13.2",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/uploads/600a59038384cf2e7ec72582/universal/BSIPA-4.1.4.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/uploads/600a65978384cf2e7ec725a9/universal/BS Utils-1.7.0.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/uploads/6015b97e0eef816aa6d0c18a/universal/SongCore-3.1.0.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
 
@@ -260,15 +267,19 @@ describe("main", () => {
 
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.16.1",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/uploads/60b14ea32d008b3daa41e8e0/universal/BSIPA-4.1.6.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/uploads/60b15a4b2d008b3daa41e900/universal/BS Utils-1.10.0.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/uploads/60cbfebfaf1e3d4577e0366e/universal/SongCore-3.5.0.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
 
@@ -289,10 +300,11 @@ describe("main", () => {
 
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=1.13.2",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
 
-  it("logs when a mod doesn't have a universal download link", async () => {
+  it("logs when a mod version doesn't exist", async () => {
     mockProject({ dependsOn: { Dummy: "^4.1.0" } });
 
     await run();

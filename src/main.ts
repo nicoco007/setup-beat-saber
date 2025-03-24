@@ -1,4 +1,4 @@
-import { error, getInput, info, warning } from "@actions/core";
+import { getInput, info, warning } from "@actions/core";
 import fetch from "node-fetch";
 import { satisfies } from "semver";
 import decompress from "decompress";
@@ -98,12 +98,16 @@ export async function run() {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: { "User-Agent": "setup-beat-saber" },
+  });
   return (await response.json()) as T;
 }
 
 async function downloadAndExtract(url: string, extractPath: string) {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: { "User-Agent": "setup-beat-saber" },
+  });
 
   if (response.status != 200) {
     throw new Error(

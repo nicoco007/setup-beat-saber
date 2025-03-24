@@ -49985,11 +49985,15 @@ async function run() {
     lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`, "utf8");
 }
 async function fetchJson(url) {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+        headers: { "User-Agent": "setup-beat-saber" },
+    });
     return (await response.json());
 }
 async function downloadAndExtract(url, extractPath) {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+        headers: { "User-Agent": "setup-beat-saber" },
+    });
     if (response.status != 200) {
         throw new Error(`Unexpected response status ${response.status} ${response.statusText}`);
     }
