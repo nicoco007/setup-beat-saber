@@ -7,7 +7,7 @@ branding:
 inputs:
   access-token:
     description: Token used to download bindings
-    required: true
+    required: false
   path:
     description: Where to unpack dependencies
     required: true

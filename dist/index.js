@@ -49942,38 +49942,53 @@ const external_child_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(
 async function run() {
     const projectInfo = await getProjectInfo((0,core.getInput)("project-path", { required: true }), (0,core.getInput)("project-configuration", { required: true }));
     const wantedGameVersion = (0,core.getInput)("game-version") || projectInfo.gameVersion;
-    const gameVersions = await fetchJson("https://versions.beatmods.com/versions.json");
-    const versionAliases = await fetchJson("https://alias.beatmods.com/aliases.json");
+    const gameVersions = (await fetchJson("https://beatmods.com/api/versions?gameName=BeatSaber")).versions;
     const extractPath = (0,core.getInput)("path", { required: true });
     await downloadReferenceAssemblies(wantedGameVersion, extractPath);
-    let gameVersion = gameVersions.find((gv) => gv === wantedGameVersion ||
-        versionAliases[gv].some((va) => va === wantedGameVersion));
+    let gameVersion = gameVersions.find((gv) => gv.version === wantedGameVersion);
     if (gameVersion == null) {
-        const latestVersion = gameVersions[0];
-        (0,core.warning)(`Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${latestVersion}'`);
-        gameVersion = latestVersion;
+        gameVersion = gameVersions.find((v) => v.defaultVersion) || gameVersions[0];
+        (0,core.warning)(`Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${gameVersion.version}'`);
     }
-    (0,core.info)(`Fetching mods for game version '${gameVersion}'`);
-    const mods = await fetchJson(`https://beatmods.com/api/v1/mod?sort=version&sortDirection=-1&gameVersion=${gameVersion}`);
+    (0,core.info)(`Fetching mods for game version '${gameVersion.version}'`);
+    const mods = (await fetchJson(`https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=${gameVersion.version}`)).mods;
+    const allMods = (await fetchJson(`https://beatmods.com/api/mods?gameName=BeatSaber&status=all`)).mods;
     const depAliases = JSON.parse((0,core.getInput)("aliases", { required: true }));
     const additionalDependencies = JSON.parse((0,core.getInput)("additional-dependencies", { required: true }));
     for (const [depName, depVersion] of Object.entries({
         ...projectInfo.dependencies,
         ...additionalDependencies,
     })) {
-        const dependency = mods.find((m) => (m.name === depName || m.name == depAliases[depName]) &&
-            (0,semver.satisfies)(m.version, depVersion));
-        if (dependency == null) {
-            (0,core.warning)(`Mod '${depName}' version '${depVersion}' not found.`);
-            continue;
+        let mod = mods.find((m) => m.mod.name === depName || m.mod.name == depAliases[depName]);
+        if (!mod) {
+            mod = allMods.find((m) => m.mod.name === depName || m.mod.name == depAliases[depName]);
+            if (!mod) {
+                (0,core.warning)(`Mod '${depName}' does not exist.`);
+                continue;
+            }
         }
-        const depDownload = dependency.downloads.find((d) => d.type === "universal")?.url;
-        if (!depDownload) {
-            (0,core.warning)(`No universal download found for mod '${depName}'`);
-            continue;
+        let version = mod.latest;
+        if (!semver.satisfies(version.modVersion, depVersion)) {
+            const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`)).versions.sort((a, b) => semver.compare(b.modVersion, a.modVersion));
+            version = versions.find((v) => semver.satisfies(v.modVersion, depVersion) &&
+                v.supportedGameVersions.map((v) => v.id).includes(gameVersion.id));
+            if (!version) {
+                version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
+                if (!version) {
+                    (0,core.warning)(`No version of mod '${depName}' found that satisfies '${depVersion}'.`);
+                    continue;
+                }
+                (0,core.warning)(`No version of mod '${depName}' found for game version '${gameVersion.version}'. Using mod version match '${version.modVersion}'.`);
+            }
+            else {
+                (0,core.info)(`Using mod '${depName}' version '${version.modVersion}' for game version '${gameVersion.version}'.`);
+            }
         }
-        (0,core.info)(`Downloading mod '${depName}' version '${dependency.version}'`);
-        await downloadAndExtract(`https://beatmods.com${depDownload}`, extractPath);
+        else {
+            (0,core.info)(`Using mod '${depName}' version '${version.modVersion}' for game version '${gameVersion.version}'.`);
+        }
+        (0,core.info)(`Downloading mod '${depName}' version '${version.modVersion}'`);
+        await downloadAndExtract(`https://beatmods.com/cdn/mod/${version.zipHash}.zip`, extractPath);
         // special case since BSIPA moves files when installed with IPA.exe
         if (depName === "BSIPA") {
             lib_default().copySync(external_path_.join(extractPath, "IPA", "Libs"), external_path_.join(extractPath, "Libs"), {
@@ -50003,14 +50018,16 @@ async function downloadAndExtract(url, extractPath) {
     });
 }
 async function downloadReferenceAssemblies(version, extractPath) {
-    const accessToken = (0,core.getInput)("access-token", { required: true });
     const url = `https://api.github.com/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v${version}`;
     const headers = {
         Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${accessToken}`,
         "User-Agent": "setup-beat-saber",
         "X-GitHub-Api-Version": "2022-11-28",
     };
+    const accessToken = (0,core.getInput)("access-token", { required: false });
+    if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+    }
     (0,core.info)(`Downloading reference assemblies for version '${version}'`);
     const response = await fetch(url, { method: "GET", headers });
     if (response.status != 200) {
