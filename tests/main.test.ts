@@ -442,8 +442,12 @@ describe("main", () => {
 
     await run();
 
-    expect(core.info).toHaveBeenCalledWith(
-      "Using mod 'BSIPA' version '4.1.3' for game version '1.13.2'.",
+    expect(fetch).toHaveBeenCalledWith("https://beatmods.com/api/mods/1", {
+      headers: { "User-Agent": "setup-beat-saber" },
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
 
@@ -472,8 +476,9 @@ describe("main", () => {
 
     await run();
 
-    expect(core.warning).toHaveBeenCalledWith(
-      "Game version '1.15.3' doesn't exist; using mods from latest version '1.16.1'",
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.16.1",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
 
@@ -492,8 +497,9 @@ describe("main", () => {
 
     await run();
 
-    expect(core.warning).toHaveBeenCalledWith(
-      "Game version '1.15.3' doesn't exist; using mods from latest version '1.13.2'",
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.13.2",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
 
@@ -535,9 +541,21 @@ describe("main", () => {
 
     await run();
 
-    expect(core.info).toHaveBeenCalledWith(
-      "Using mod 'BSIPA' version '4.1.4' for game version '1.13.2'.",
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
     );
+    expect(
+      fs.existsSync(
+        path.join(
+          __dirname,
+          "BeatSaberReferenceAssemblies",
+          "Beat Saber_Data",
+          "Managed",
+          "Main.dll",
+        ),
+      ),
+    ).toBe(true);
   });
 
   afterEach(() => {
