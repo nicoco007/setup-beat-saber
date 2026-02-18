@@ -71,11 +71,14 @@ export async function run() {
     let version: ModVersion | undefined = mod.latest;
 
     if (!semver.satisfies(version.modVersion, depVersion)) {
-      const versions = (
-        await fetchJson<ModResponse>(
-          `https://beatmods.com/api/mods/${mod.mod.id}`,
-        )
-      ).versions.sort((a, b) => semver.compare(b.modVersion, a.modVersion));
+      const versions =
+        (
+          await fetchJson<ModResponse>(
+            `https://beatmods.com/api/mods/${mod.mod.id}`,
+          )
+        )?.versions?.sort((a, b) =>
+          semver.compare(b.modVersion, a.modVersion),
+        ) ?? [];
 
       version = versions.find(
         (v) =>
