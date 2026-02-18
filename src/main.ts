@@ -76,7 +76,7 @@ export async function run() {
           await fetchJson<ModResponse>(
             `https://beatmods.com/api/mods/${mod.mod.id}`,
           )
-        )?.versions?.sort((a, b) =>
+        )?.mod?.versions?.sort((a, b) =>
           semver.compare(b.modVersion, a.modVersion),
         ) ?? [];
 
@@ -274,8 +274,10 @@ interface ModsResponse {
 }
 
 interface ModResponse {
-  info: Mod;
-  versions: ModVersion[];
+  mod: {
+    info: Mod;
+    versions: ModVersion[];
+  };
 }
 
 interface ModLatestVersion {

@@ -344,23 +344,25 @@ describe("main", () => {
     mockFetch(
       "https://beatmods.com/api/mods/1",
       JSON.stringify({
-        versions: [
-          {
-            modVersion: "4.1.4",
-            zipHash: "600a59038384cf2e7ec72582",
-            supportedGameVersions: [{ id: 1 }],
-          },
-          {
-            modVersion: "4.1.3",
-            zipHash: "600a59038384cf2e7ec72582",
-            supportedGameVersions: [{ id: 1 }],
-          },
-          {
-            modVersion: "4.1.6",
-            zipHash: "60b14ea32d008b3daa41e8e0",
-            supportedGameVersions: [{ id: 2 }],
-          },
-        ],
+        mod: {
+          versions: [
+            {
+              modVersion: "4.1.4",
+              zipHash: "600a59038384cf2e7ec72582",
+              supportedGameVersions: [{ id: 1 }],
+            },
+            {
+              modVersion: "4.1.3",
+              zipHash: "600a59038384cf2e7ec72582",
+              supportedGameVersions: [{ id: 1 }],
+            },
+            {
+              modVersion: "4.1.6",
+              zipHash: "60b14ea32d008b3daa41e8e0",
+              supportedGameVersions: [{ id: 2 }],
+            },
+          ],
+        },
       }),
     );
   });

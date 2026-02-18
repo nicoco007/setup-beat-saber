@@ -52560,7 +52560,7 @@ async function run() {
         }
         let version = mod.latest;
         if (!semver.satisfies(version.modVersion, depVersion)) {
-            const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.versions?.sort((a, b) => semver.compare(b.modVersion, a.modVersion)) ?? [];
+            const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(b.modVersion, a.modVersion)) ?? [];
             version = versions.find((v) => semver.satisfies(v.modVersion, depVersion) &&
                 v.supportedGameVersions.map((v) => v.id).includes(gameVersion.id));
             if (!version) {
