@@ -20,6 +20,7 @@ const childProcessSpawn = jest.fn();
 const appendFileSync = jest.fn();
 const readFileSync = jest.fn();
 const writeFileSync = jest.fn();
+const copySync = jest.fn();
 
 jest.unstable_mockModule("node-fetch", () => ({
   ...nf,
@@ -46,6 +47,7 @@ jest.mock("fs-extra", () => ({
   appendFileSync: appendFileSync,
   readFileSync: readFileSync,
   writeFileSync: writeFileSync,
+  copySync: copySync,
 }));
 
 const { run } = await import("../src/main.js");
@@ -461,6 +463,87 @@ describe("main", () => {
     );
   });
 
+  it("logs info when matching mod version that satisfies both version range and game version", async () => {
+    // Set up dependencies including BSIPA with specific version requirement
+    mockProject({
+      dependsOn: {
+        BSIPA: "^4.1.0",
+        "BS Utils": "^1.6.3",
+        SongCore: "^3.0.2",
+      },
+    });
+
+    // Override the mods list to have BSIPA latest that doesn't satisfy ^4.1.0
+    mockFetch(
+      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.13.2",
+      JSON.stringify({
+        mods: [
+          {
+            mod: { id: 1, name: "BSIPA" },
+            latest: {
+              modVersion: "4.0.5", // This doesn't satisfy ^4.1.0
+              zipHash: "600a59038384cf2e7ec72580",
+              supportedGameVersions: [{ id: 1 }],
+            },
+          },
+          {
+            mod: { id: 2, name: "BS Utils" },
+            latest: {
+              modVersion: "1.7.0",
+              zipHash: "600a65978384cf2e7ec725a9",
+              supportedGameVersions: [{ id: 1 }],
+            },
+          },
+          {
+            mod: { id: 3, name: "SongCore" },
+            latest: {
+              modVersion: "3.1.0",
+              zipHash: "6015b97e0eef816aa6d0c18a",
+              supportedGameVersions: [{ id: 1 }],
+            },
+          },
+        ],
+      }),
+    );
+
+    // Mock the detailed version list for BSIPA
+    mockFetch(
+      "https://beatmods.com/api/mods/1",
+      JSON.stringify({
+        mod: {
+          versions: [
+            {
+              modVersion: "4.1.4",
+              zipHash: "600a59038384cf2e7ec72582",
+              supportedGameVersions: [{ id: 1 }],
+            },
+            {
+              modVersion: "4.1.2",
+              zipHash: "600a59038384cf2e7ec72581",
+              supportedGameVersions: [{ id: 1 }],
+            },
+            {
+              modVersion: "4.0.5",
+              zipHash: "600a59038384cf2e7ec72580",
+              supportedGameVersions: [{ id: 1 }],
+            },
+          ],
+        },
+      }),
+    );
+
+    await run();
+
+    // Verify that it found the right version and logged the info message
+    expect(core.info).toHaveBeenCalledWith(
+      "Using mod 'BSIPA' version '4.1.4' for game version '1.13.2'.",
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
+    );
+  });
+
   it("fails if no mod version matches the specified range", async () => {
     mockProject({ dependsOn: { BSIPA: "4.1.5" } });
 
@@ -556,6 +639,67 @@ describe("main", () => {
         ),
       ),
     ).toBe(true);
+  });
+
+  it("uses aliases to find mods when dependency name is aliased", async () => {
+    mockProject({ dependsOn: { "Beat Saber Utils": "^1.6.0" } });
+    setInput("aliases", JSON.stringify({ "Beat Saber Utils": "BS Utils" }));
+
+    await run();
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/cdn/mod/600a65978384cf2e7ec725a9.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
+    );
+  });
+
+  it("downloads additional dependencies specified in the action input", async () => {
+    mockProject({ dependsOn: { BSIPA: "^4.1.3" } });
+    setInput(
+      "additional-dependencies",
+      JSON.stringify({ "BS Utils": "^1.6.0", SongCore: "^3.0.0" }),
+    );
+
+    await run();
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/cdn/mod/600a65978384cf2e7ec725a9.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/cdn/mod/6015b97e0eef816aa6d0c18a.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
+    );
+  });
+
+  it("writes environment variables to GITHUB_ENV", async () => {
+    await run();
+
+    const extractPath = path.join(__dirname, "BeatSaberReferenceAssemblies");
+    expect(appendFileSync).toHaveBeenCalledWith(
+      "github_env.txt",
+      `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`,
+      "utf8",
+    );
+  });
+
+  it("copies BSIPA files from IPA directory to root directories", async () => {
+    await run();
+
+    const extractPath = path.join(__dirname, "BeatSaberReferenceAssemblies");
+    expect(copySync).toHaveBeenCalledWith(
+      path.join(extractPath, "IPA", "Libs"),
+      path.join(extractPath, "Libs"),
+      { overwrite: true },
+    );
+    expect(copySync).toHaveBeenCalledWith(
+      path.join(extractPath, "IPA", "Data"),
+      path.join(extractPath, "Beat Saber_Data"),
+    );
   });
 
   afterEach(() => {
