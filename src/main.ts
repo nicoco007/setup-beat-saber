@@ -1,7 +1,7 @@
 import { getInput, info, warning } from "@actions/core";
 import fetch from "node-fetch";
 import * as semver from "semver";
-import decompress from "decompress";
+import { unzip } from "fflate";
 import fs from "fs-extra";
 import * as path from "path";
 import { spawn } from "child_process";
@@ -159,10 +159,13 @@ async function downloadAndExtract(url: string, extractPath: string) {
     );
   }
 
-  await decompress(Buffer.from(await response.arrayBuffer()), extractPath, {
-    // https://github.com/kevva/decompress/issues/46#issuecomment-428018719
-    filter: (file) => !file.path.endsWith("/"),
-  });
+  const files = await unzipAsync(Buffer.from(await response.arrayBuffer()));
+  for (const [filePath, data] of Object.entries(files)) {
+    if (filePath.endsWith("/")) continue;
+    const destPath = path.join(extractPath, filePath);
+    await fs.ensureDir(path.dirname(destPath));
+    await fs.writeFile(destPath, data);
+  }
 }
 
 async function downloadReferenceAssemblies(
@@ -190,16 +193,25 @@ async function downloadReferenceAssemblies(
     );
   }
 
-  await decompress(Buffer.from(await response.arrayBuffer()), extractPath, {
-    // https://github.com/kevva/decompress/issues/46#issuecomment-428018719
-    filter: (file) => !file.path.endsWith("/"),
-    map: (file) => {
-      if (file.type == "file") {
-        file.path = file.path.split("/").slice(2).join(path.sep);
-      }
+  const files = await unzipAsync(Buffer.from(await response.arrayBuffer()));
+  for (const [filePath, data] of Object.entries(files)) {
+    if (filePath.endsWith("/")) continue;
+    const destRelPath = filePath.split("/").slice(2).join(path.sep);
+    if (!destRelPath) continue;
+    const destPath = path.join(extractPath, destRelPath);
+    await fs.ensureDir(path.dirname(destPath));
+    await fs.writeFile(destPath, data);
+  }
+}
 
-      return file;
-    },
+function unzipAsync(
+  data: Uint8Array,
+): Promise<Record<string, Uint8Array>> {
+  return new Promise((resolve, reject) => {
+    unzip(data, (err, result) => {
+      if (err) reject(err);
+      else resolve(result);
+    });
   });
 }
 
