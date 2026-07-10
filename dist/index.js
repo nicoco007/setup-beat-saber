@@ -549,14 +549,14 @@ const { areIdentical } = __nccwpck_require__(887)
 async function createLink (srcpath, dstpath) {
   let dstStat
   try {
-    dstStat = await fs.lstat(dstpath)
+    dstStat = await fs.lstat(dstpath, { bigint: true })
   } catch {
     // ignore error
   }
 
   let srcStat
   try {
-    srcStat = await fs.lstat(srcpath)
+    srcStat = await fs.lstat(srcpath, { bigint: true })
   } catch (err) {
     err.message = err.message.replace('lstat', 'ensureLink')
     throw err
@@ -578,11 +578,11 @@ async function createLink (srcpath, dstpath) {
 function createLinkSync (srcpath, dstpath) {
   let dstStat
   try {
-    dstStat = fs.lstatSync(dstpath)
+    dstStat = fs.lstatSync(dstpath, { bigint: true })
   } catch {}
 
   try {
-    const srcStat = fs.lstatSync(srcpath)
+    const srcStat = fs.lstatSync(srcpath, { bigint: true })
     if (dstStat && areIdentical(srcStat, dstStat)) return
   } catch (err) {
     err.message = err.message.replace('lstat', 'ensureLink')
@@ -783,18 +783,18 @@ async function createSymlink (srcpath, dstpath, type) {
     // (standard symlink behavior) or fall back to cwd if that doesn't exist
     let srcStat
     if (path.isAbsolute(srcpath)) {
-      srcStat = await fs.stat(srcpath)
+      srcStat = await fs.stat(srcpath, { bigint: true })
     } else {
       const dstdir = path.dirname(dstpath)
       const relativeToDst = path.join(dstdir, srcpath)
       try {
-        srcStat = await fs.stat(relativeToDst)
+        srcStat = await fs.stat(relativeToDst, { bigint: true })
       } catch {
-        srcStat = await fs.stat(srcpath)
+        srcStat = await fs.stat(srcpath, { bigint: true })
       }
     }
 
-    const dstStat = await fs.stat(dstpath)
+    const dstStat = await fs.stat(dstpath, { bigint: true })
     if (areIdentical(srcStat, dstStat)) return
   }
 
@@ -820,18 +820,18 @@ function createSymlinkSync (srcpath, dstpath, type) {
     // (standard symlink behavior) or fall back to cwd if that doesn't exist
     let srcStat
     if (path.isAbsolute(srcpath)) {
-      srcStat = fs.statSync(srcpath)
+      srcStat = fs.statSync(srcpath, { bigint: true })
     } else {
       const dstdir = path.dirname(dstpath)
       const relativeToDst = path.join(dstdir, srcpath)
       try {
-        srcStat = fs.statSync(relativeToDst)
+        srcStat = fs.statSync(relativeToDst, { bigint: true })
       } catch {
-        srcStat = fs.statSync(srcpath)
+        srcStat = fs.statSync(srcpath, { bigint: true })
       }
     }
 
-    const dstStat = fs.statSync(dstpath)
+    const dstStat = fs.statSync(dstpath, { bigint: true })
     if (areIdentical(srcStat, dstStat)) return
   }
 
@@ -1556,7 +1556,10 @@ async function checkParentPaths (src, srcStat, dest, funcName) {
   try {
     destStat = await fs.stat(destParent, { bigint: true })
   } catch (err) {
-    if (err.code === 'ENOENT') return
+    // The destination parent does not exist yet, but a deeper ancestor might
+    // (e.g. when it is a symlink into the source tree). Keep walking up so the
+    // self-subdirectory check is not bypassed.
+    if (err.code === 'ENOENT') return checkParentPaths(src, srcStat, destParent, funcName)
     throw err
   }
 
@@ -1575,7 +1578,10 @@ function checkParentPathsSync (src, srcStat, dest, funcName) {
   try {
     destStat = fs.statSync(destParent, { bigint: true })
   } catch (err) {
-    if (err.code === 'ENOENT') return
+    // The destination parent does not exist yet, but a deeper ancestor might
+    // (e.g. when it is a symlink into the source tree). Keep walking up so the
+    // self-subdirectory check is not bypassed.
+    if (err.code === 'ENOENT') return checkParentPathsSync(src, srcStat, destParent, funcName)
     throw err
   }
   if (areIdentical(srcStat, destStat)) {
@@ -1625,30 +1631,47 @@ const fs = __nccwpck_require__(3506)
 const u = (__nccwpck_require__(5077).fromPromise)
 
 async function utimesMillis (path, atime, mtime) {
-  // if (!HAS_MILLIS_RES) return fs.utimes(path, atime, mtime, callback)
   const fd = await fs.open(path, 'r+')
 
-  let closeErr = null
+  let error = null
 
   try {
     await fs.futimes(fd, atime, mtime)
+  } catch (futimesErr) {
+    error = futimesErr
   } finally {
     try {
       await fs.close(fd)
-    } catch (e) {
-      closeErr = e
+    } catch (closeErr) {
+      if (!error) error = closeErr
     }
   }
 
-  if (closeErr) {
-    throw closeErr
+  if (error) {
+    throw error
   }
 }
 
 function utimesMillisSync (path, atime, mtime) {
   const fd = fs.openSync(path, 'r+')
-  fs.futimesSync(fd, atime, mtime)
-  return fs.closeSync(fd)
+
+  let error = null
+
+  try {
+    fs.futimesSync(fd, atime, mtime)
+  } catch (futimesErr) {
+    error = futimesErr
+  } finally {
+    try {
+      fs.closeSync(fd)
+    } catch (closeErr) {
+      if (!error) error = closeErr
+    }
+  }
+
+  if (error) {
+    throw error
+  }
 }
 
 module.exports = {
@@ -2733,6 +2756,10 @@ function stringify (obj, { EOL = '\n', finalEOL = true, replacer = null, spaces 
   const EOF = finalEOL ? EOL : ''
   const str = JSON.stringify(obj, replacer, spaces)
 
+  if (str === undefined) {
+    throw new TypeError(`Converting ${typeof obj} value to JSON is not supported`)
+  }
+
   return str.replace(/\n/g, EOL) + EOF
 }
 
@@ -3023,6 +3050,9 @@ class Range {
   }
 
   parseRange (range) {
+    // strip build metadata so it can't bleed into the version
+    range = range.replace(BUILDSTRIPRE, '')
+
     // memoize range parsing for performance.
     // this is a very hot path, and fully deterministic.
     const memoOpts =
@@ -3148,12 +3178,16 @@ const debug = __nccwpck_require__(1159)
 const SemVer = __nccwpck_require__(7163)
 const {
   safeRe: re,
+  src,
   t,
   comparatorTrimReplace,
   tildeTrimReplace,
   caretTrimReplace,
 } = __nccwpck_require__(5471)
 const { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = __nccwpck_require__(5101)
+
+// unbounded global build-metadata stripper used by parseRange
+const BUILDSTRIPRE = new RegExp(src[t.BUILD], 'g')
 
 const isNullSet = c => c.value === '<0.0.0-0'
 const isAny = c => c.value === ''
@@ -3195,6 +3229,11 @@ const parseComparator = (comp, options) => {
 
 const isX = id => !id || id.toLowerCase() === 'x' || id === '*'
 
+const invalidXRangeOrder = (M, m, p) => (
+  (isX(M) && !isX(m)) ||
+  (isX(m) && p && !isX(p))
+)
+
 // ~, ~> --> * (any, kinda silly)
 // ~2, ~2.x, ~2.x.x, ~>2, ~>2.x ~>2.x.x --> >=2.0.0 <3.0.0-0
 // ~2.0, ~2.0.x, ~>2.0, ~>2.0.x --> >=2.0.0 <2.1.0-0
@@ -3212,6 +3251,10 @@ const replaceTildes = (comp, options) => {
 
 const replaceTilde = (comp, options) => {
   const r = options.loose ? re[t.TILDELOOSE] : re[t.TILDE]
+  // if we're including prereleases in the match, then the lower bound is
+  // -0, the lowest possible prerelease value, just like x-ranges and carets.
+  // this keeps `~1.2` equivalent to the `1.2.x` x-range it's documented as.
+  const z = options.includePrerelease ? '-0' : ''
   return comp.replace(r, (_, M, m, p, pr) => {
     debug('tilde', comp, _, M, m, p, pr)
     let ret
@@ -3219,10 +3262,10 @@ const replaceTilde = (comp, options) => {
     if (isX(M)) {
       ret = ''
     } else if (isX(m)) {
-      ret = `>=${M}.0.0 <${+M + 1}.0.0-0`
+      ret = `>=${M}.0.0${z} <${+M + 1}.0.0-0`
     } else if (isX(p)) {
       // ~1.2 == >=1.2.0 <1.3.0-0
-      ret = `>=${M}.${m}.0 <${M}.${+m + 1}.0-0`
+      ret = `>=${M}.${m}.0${z} <${M}.${+m + 1}.0-0`
     } else if (pr) {
       debug('replaceTilde pr', pr)
       ret = `>=${M}.${m}.${p}-${pr
@@ -3291,10 +3334,10 @@ const replaceCaret = (comp, options) => {
       if (M === '0') {
         if (m === '0') {
           ret = `>=${M}.${m}.${p
-          }${z} <${M}.${m}.${+p + 1}-0`
+          } <${M}.${m}.${+p + 1}-0`
         } else {
           ret = `>=${M}.${m}.${p
-          }${z} <${M}.${+m + 1}.0-0`
+          } <${M}.${+m + 1}.0-0`
         }
       } else {
         ret = `>=${M}.${m}.${p
@@ -3320,6 +3363,10 @@ const replaceXRange = (comp, options) => {
   const r = options.loose ? re[t.XRANGELOOSE] : re[t.XRANGE]
   return comp.replace(r, (ret, gtlt, M, m, p, pr) => {
     debug('xRange', comp, ret, gtlt, M, m, p, pr)
+    if (invalidXRangeOrder(M, m, p)) {
+      return comp
+    }
+
     const xM = isX(M)
     const xm = xM || isX(m)
     const xp = xm || isX(p)
@@ -3495,6 +3542,22 @@ const { safeRe: re, t } = __nccwpck_require__(5471)
 
 const parseOptions = __nccwpck_require__(356)
 const { compareIdentifiers } = __nccwpck_require__(3348)
+
+const isPrereleaseIdentifier = (prerelease, identifier) => {
+  const identifiers = identifier.split('.')
+  if (identifiers.length > prerelease.length) {
+    return false
+  }
+
+  for (let i = 0; i < identifiers.length; i++) {
+    if (compareIdentifiers(prerelease[i], identifiers[i]) !== 0) {
+      return false
+    }
+  }
+
+  return true
+}
+
 class SemVer {
   constructor (version, options) {
     options = parseOptions(options)
@@ -3798,8 +3861,9 @@ class SemVer {
           if (identifierBase === false) {
             prerelease = [identifier]
           }
-          if (compareIdentifiers(this.prerelease[0], identifier) === 0) {
-            if (isNaN(this.prerelease[1])) {
+          if (isPrereleaseIdentifier(this.prerelease, identifier)) {
+            const prereleaseBase = this.prerelease[identifier.split('.').length]
+            if (isNaN(prereleaseBase)) {
               this.prerelease = prerelease
             }
           } else {
@@ -4309,6 +4373,61 @@ module.exports = sort
 
 /***/ }),
 
+/***/ 6114:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+
+
+const parse = __nccwpck_require__(6353)
+const constants = __nccwpck_require__(5101)
+const SemVer = __nccwpck_require__(7163)
+
+const truncate = (version, truncation, options) => {
+  if (!constants.RELEASE_TYPES.includes(truncation)) {
+    return null
+  }
+
+  const clonedVersion = cloneInputVersion(version, options)
+  return clonedVersion && doTruncation(clonedVersion, truncation)
+}
+
+const cloneInputVersion = (version, options) => {
+  const versionStringToParse = (
+    version instanceof SemVer ? version.version : version
+  )
+
+  return parse(versionStringToParse, options)
+}
+
+const doTruncation = (version, truncation) => {
+  if (isPrerelease(truncation)) {
+    return version.version
+  }
+
+  version.prerelease = []
+
+  switch (truncation) {
+    case 'major':
+      version.minor = 0
+      version.patch = 0
+      break
+    case 'minor':
+      version.patch = 0
+      break
+  }
+
+  return version.format()
+}
+
+const isPrerelease = (type) => {
+  return type.startsWith('pre')
+}
+
+module.exports = truncate
+
+
+/***/ }),
+
 /***/ 8780:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -4357,6 +4476,7 @@ const gte = __nccwpck_require__(1236)
 const lte = __nccwpck_require__(6717)
 const cmp = __nccwpck_require__(8646)
 const coerce = __nccwpck_require__(5385)
+const truncate = __nccwpck_require__(6114)
 const Comparator = __nccwpck_require__(9379)
 const Range = __nccwpck_require__(6782)
 const satisfies = __nccwpck_require__(8011)
@@ -4395,6 +4515,7 @@ module.exports = {
   lte,
   cmp,
   coerce,
+  truncate,
   Comparator,
   Range,
   satisfies,
@@ -4734,7 +4855,7 @@ createToken('LOOSE', `^${src[t.LOOSEPLAIN]}$`)
 createToken('GTLT', '((?:<|>)?=?)')
 
 // Something like "2.*" or "1.2.x".
-// Note that "x.x" is a valid xRange identifer, meaning "any version"
+// Note that "x.x" is a valid xRange identifier, meaning "any version"
 // Only the first item is strictly required.
 createToken('XRANGEIDENTIFIERLOOSE', `${src[t.NUMERICIDENTIFIERLOOSE]}|x|X|\\*`)
 createToken('XRANGEIDENTIFIER', `${src[t.NUMERICIDENTIFIER]}|x|X|\\*`)
@@ -5326,7 +5447,7 @@ const simpleSubset = (sub, dom, options) => {
         if (higher === c && higher !== gt) {
           return false
         }
-      } else if (gt.operator === '>=' && !satisfies(gt.semver, String(c), options)) {
+      } else if (gt.operator === '>=' && !c.test(gt.semver)) {
         return false
       }
     }
@@ -5344,7 +5465,7 @@ const simpleSubset = (sub, dom, options) => {
         if (lower === c && lower !== lt) {
           return false
         }
-      } else if (lt.operator === '<=' && !satisfies(lt.semver, String(c), options)) {
+      } else if (lt.operator === '<=' && !c.test(lt.semver)) {
         return false
       }
     }
@@ -9816,8 +9937,6 @@ function defaultFactory (origin, opts) {
 
 class Agent extends DispatcherBase {
   constructor ({ factory = defaultFactory, maxRedirections = 0, connect, ...options } = {}) {
-    super()
-
     if (typeof factory !== 'function') {
       throw new InvalidArgumentError('factory must be a function.')
     }
@@ -9829,6 +9948,8 @@ class Agent extends DispatcherBase {
     if (!Number.isInteger(maxRedirections) || maxRedirections < 0) {
       throw new InvalidArgumentError('maxRedirections must be a positive number')
     }
+
+    super(options)
 
     if (connect && typeof connect !== 'function') {
       connect = { ...connect }
@@ -10201,6 +10322,9 @@ const EMPTY_BUF = Buffer.alloc(0)
 const FastBuffer = Buffer[Symbol.species]
 const addListener = util.addListener
 const removeAllListeners = util.removeAllListeners
+const kIdleSocketValidation = Symbol('kIdleSocketValidation')
+const kIdleSocketValidationTimeout = Symbol('kIdleSocketValidationTimeout')
+const kSocketUsed = Symbol('kSocketUsed')
 
 let extractBody
 
@@ -10423,27 +10547,69 @@ class Parser {
 
       const offset = llhttp.llhttp_get_error_pos(this.ptr) - currentBufferPtr
 
-      if (ret === constants.ERROR.PAUSED_UPGRADE) {
-        this.onUpgrade(data.slice(offset))
-      } else if (ret === constants.ERROR.PAUSED) {
-        this.paused = true
-        socket.unshift(data.slice(offset))
-      } else if (ret !== constants.ERROR.OK) {
-        const ptr = llhttp.llhttp_get_error_reason(this.ptr)
-        let message = ''
-        /* istanbul ignore else: difficult to make a test case for */
-        if (ptr) {
-          const len = new Uint8Array(llhttp.memory.buffer, ptr).indexOf(0)
-          message =
-            'Response does not match the HTTP/1.1 protocol (' +
-            Buffer.from(llhttp.memory.buffer, ptr, len).toString() +
-            ')'
+      if (ret !== constants.ERROR.OK) {
+        const body = data.subarray(offset)
+
+        if (ret === constants.ERROR.PAUSED_UPGRADE) {
+          this.onUpgrade(body)
+        } else if (ret === constants.ERROR.PAUSED) {
+          this.paused = true
+          socket.unshift(body)
+        } else {
+          throw this.createError(ret, body)
         }
-        throw new HTTPParserError(message, constants.ERROR[ret], data.slice(offset))
       }
     } catch (err) {
       util.destroy(socket, err)
     }
+  }
+
+  finish () {
+    assert(currentParser === null)
+    assert(this.ptr != null)
+    assert(!this.paused)
+
+    const { llhttp } = this
+
+    let ret
+
+    try {
+      currentParser = this
+      ret = llhttp.llhttp_finish(this.ptr)
+    } finally {
+      currentParser = null
+    }
+
+    if (ret === constants.ERROR.OK) {
+      return null
+    }
+
+    if (ret === constants.ERROR.PAUSED || ret === constants.ERROR.PAUSED_UPGRADE) {
+      this.paused = true
+      return null
+    }
+
+    return this.createError(ret, EMPTY_BUF)
+  }
+
+  createError (ret, data) {
+    const { llhttp, contentLength, bytesRead } = this
+
+    if (contentLength && bytesRead !== parseInt(contentLength, 10)) {
+      return new ResponseContentLengthMismatchError()
+    }
+
+    const ptr = llhttp.llhttp_get_error_reason(this.ptr)
+    let message = ''
+    if (ptr) {
+      const len = new Uint8Array(llhttp.memory.buffer, ptr).indexOf(0)
+      message =
+        'Response does not match the HTTP/1.1 protocol (' +
+        Buffer.from(llhttp.memory.buffer, ptr, len).toString() +
+        ')'
+    }
+
+    return new HTTPParserError(message, constants.ERROR[ret], data)
   }
 
   destroy () {
@@ -10470,6 +10636,11 @@ class Parser {
 
     /* istanbul ignore next: difficult to make a test case for */
     if (socket.destroyed) {
+      return -1
+    }
+
+    if (client[kRunning] === 0) {
+      util.destroy(socket, new SocketError('bad response', util.getSocketInfo(socket)))
       return -1
     }
 
@@ -10573,6 +10744,11 @@ class Parser {
 
     /* istanbul ignore next: difficult to make a test case for */
     if (socket.destroyed) {
+      return -1
+    }
+
+    if (client[kRunning] === 0) {
+      util.destroy(socket, new SocketError('bad response', util.getSocketInfo(socket)))
       return -1
     }
 
@@ -10749,6 +10925,7 @@ class Parser {
     request.onComplete(headers)
 
     client[kQueue][client[kRunningIdx]++] = null
+    socket[kSocketUsed] = true
 
     if (socket[kWriting]) {
       assert(client[kRunning] === 0)
@@ -10807,6 +10984,9 @@ async function connectH1 (client, socket) {
   socket[kWriting] = false
   socket[kReset] = false
   socket[kBlocking] = false
+  socket[kIdleSocketValidation] = 0
+  socket[kIdleSocketValidationTimeout] = null
+  socket[kSocketUsed] = false
   socket[kParser] = new Parser(client, socket, llhttpInstance)
 
   addListener(socket, 'error', function (err) {
@@ -10817,8 +10997,11 @@ async function connectH1 (client, socket) {
     // On Mac OS, we get an ECONNRESET even if there is a full body to be forwarded
     // to the user.
     if (err.code === 'ECONNRESET' && parser.statusCode && !parser.shouldKeepAlive) {
-      // We treat all incoming data so for as a valid response.
-      parser.onMessageComplete()
+      const parserErr = parser.finish()
+      if (parserErr) {
+        this[kError] = parserErr
+        this[kClient][kOnError](parserErr)
+      }
       return
     }
 
@@ -10837,8 +11020,10 @@ async function connectH1 (client, socket) {
     const parser = this[kParser]
 
     if (parser.statusCode && !parser.shouldKeepAlive) {
-      // We treat all incoming data so far as a valid response.
-      parser.onMessageComplete()
+      const parserErr = parser.finish()
+      if (parserErr) {
+        util.destroy(this, parserErr)
+      }
       return
     }
 
@@ -10848,10 +11033,11 @@ async function connectH1 (client, socket) {
     const client = this[kClient]
     const parser = this[kParser]
 
+    clearIdleSocketValidation(this)
+
     if (parser) {
       if (!this[kError] && parser.statusCode && !parser.shouldKeepAlive) {
-        // We treat all incoming data so far as a valid response.
-        parser.onMessageComplete()
+        this[kError] = parser.finish() || this[kError]
       }
 
       this[kParser].destroy()
@@ -10914,7 +11100,7 @@ async function connectH1 (client, socket) {
       return socket.destroyed
     },
     busy (request) {
-      if (socket[kWriting] || socket[kReset] || socket[kBlocking]) {
+      if (socket[kWriting] || socket[kReset] || socket[kBlocking] || socket[kIdleSocketValidation] === 1) {
         return true
       }
 
@@ -10952,6 +11138,31 @@ async function connectH1 (client, socket) {
   }
 }
 
+function clearIdleSocketValidation (socket) {
+  if (socket[kIdleSocketValidationTimeout]) {
+    clearTimeout(socket[kIdleSocketValidationTimeout])
+    socket[kIdleSocketValidationTimeout] = null
+  }
+
+  socket[kIdleSocketValidation] = 0
+}
+
+function scheduleIdleSocketValidation (client, socket) {
+  socket[kIdleSocketValidation] = 1
+  socket[kIdleSocketValidationTimeout] = setTimeout(() => {
+    socket[kIdleSocketValidationTimeout] = null
+    socket[kIdleSocketValidation] = 2
+
+    if (client[kSocket] === socket && !socket.destroyed) {
+      client[kResume]()
+    }
+  }, 0)
+  socket[kIdleSocketValidationTimeout].unref?.()
+}
+
+/**
+ * @param {import('./client.js')} client
+ */
 function resumeH1 (client) {
   const socket = client[kSocket]
 
@@ -10964,6 +11175,32 @@ function resumeH1 (client) {
     } else if (socket[kNoRef] && socket.ref) {
       socket.ref()
       socket[kNoRef] = false
+    }
+
+    if (client[kRunning] === 0 && client[kPending] > 0 && socket[kSocketUsed]) {
+      if (socket[kIdleSocketValidation] === 0) {
+        scheduleIdleSocketValidation(client, socket)
+        socket[kParser].readMore()
+        if (socket.destroyed) {
+          return
+        }
+        return
+      }
+
+      if (socket[kIdleSocketValidation] === 1) {
+        socket[kParser].readMore()
+        if (socket.destroyed) {
+          return
+        }
+        return
+      }
+    }
+
+    if (client[kRunning] === 0) {
+      socket[kParser].readMore()
+      if (socket.destroyed) {
+        return
+      }
     }
 
     if (client[kSize] === 0) {
@@ -11059,6 +11296,7 @@ function writeH1 (client, request) {
   }
 
   const socket = client[kSocket]
+  clearIdleSocketValidation(socket)
 
   const abort = (err) => {
     if (request.aborted || request.completed) {
@@ -12378,9 +12616,10 @@ class Client extends DispatcherBase {
     autoSelectFamilyAttemptTimeout,
     // h2
     maxConcurrentStreams,
-    allowH2
+    allowH2,
+    webSocket
   } = {}) {
-    super()
+    super({ webSocket })
 
     if (keepAlive !== undefined) {
       throw new InvalidArgumentError('unsupported keepAlive, use pipelining=0 instead')
@@ -12912,15 +13151,24 @@ const { kDestroy, kClose, kClosed, kDestroyed, kDispatch, kInterceptors } = __nc
 const kOnDestroyed = Symbol('onDestroyed')
 const kOnClosed = Symbol('onClosed')
 const kInterceptedDispatch = Symbol('Intercepted Dispatch')
+const kWebSocketOptions = Symbol('webSocketOptions')
 
 class DispatcherBase extends Dispatcher {
-  constructor () {
+  constructor (opts) {
     super()
 
     this[kDestroyed] = false
     this[kOnDestroyed] = null
     this[kClosed] = false
     this[kOnClosed] = []
+    this[kWebSocketOptions] = opts?.webSocket ?? {}
+  }
+
+  get webSocketOptions () {
+    return {
+      maxFragments: this[kWebSocketOptions].maxFragments ?? 131072,
+      maxPayloadSize: this[kWebSocketOptions].maxPayloadSize ?? 128 * 1024 * 1024
+    }
   }
 
   get destroyed () {
@@ -13480,8 +13728,8 @@ const kRemoveClient = Symbol('remove client')
 const kStats = Symbol('stats')
 
 class PoolBase extends DispatcherBase {
-  constructor () {
-    super()
+  constructor (opts) {
+    super(opts)
 
     this[kQueue] = new FixedQueue()
     this[kClients] = []
@@ -13740,8 +13988,6 @@ class Pool extends PoolBase {
     allowH2,
     ...options
   } = {}) {
-    super()
-
     if (connections != null && (!Number.isFinite(connections) || connections < 0)) {
       throw new InvalidArgumentError('invalid connections')
     }
@@ -13765,6 +14011,8 @@ class Pool extends PoolBase {
         ...connect
       })
     }
+
+    super(options)
 
     this[kInterceptors] = options.interceptors?.Pool && Array.isArray(options.interceptors.Pool)
       ? options.interceptors.Pool
@@ -18818,32 +19066,25 @@ function parseUnparsedAttributes (unparsedAttributes, cookieAttributeList = {}) 
     // If the attribute-name case-insensitively matches the string
     // "SameSite", the user agent MUST process the cookie-av as follows:
 
-    // 1. Let enforcement be "Default".
-    let enforcement = 'Default'
-
     const attributeValueLowercase = attributeValue.toLowerCase()
-    // 2. If cookie-av's attribute-value is a case-insensitive match for
-    //    "None", set enforcement to "None".
-    if (attributeValueLowercase.includes('none')) {
-      enforcement = 'None'
-    }
 
-    // 3. If cookie-av's attribute-value is a case-insensitive match for
-    //    "Strict", set enforcement to "Strict".
-    if (attributeValueLowercase.includes('strict')) {
-      enforcement = 'Strict'
+    // 1. If cookie-av's attribute-value is a case-insensitive match for
+    //    "None", append an attribute to the cookie-attribute-list with an
+    //    attribute-name of "SameSite" and an attribute-value of "None".
+    if (attributeValueLowercase === 'none') {
+      cookieAttributeList.sameSite = 'None'
+    } else if (attributeValueLowercase === 'strict') {
+      // 2. If cookie-av's attribute-value is a case-insensitive match for
+      //    "Strict", append an attribute to the cookie-attribute-list with
+      //    an attribute-name of "SameSite" and an attribute-value of
+      //    "Strict".
+      cookieAttributeList.sameSite = 'Strict'
+    } else if (attributeValueLowercase === 'lax') {
+      // 3. If cookie-av's attribute-value is a case-insensitive match for
+      //    "Lax", append an attribute to the cookie-attribute-list with an
+      //    attribute-name of "SameSite" and an attribute-value of "Lax".
+      cookieAttributeList.sameSite = 'Lax'
     }
-
-    // 4. If cookie-av's attribute-value is a case-insensitive match for
-    //    "Lax", set enforcement to "Lax".
-    if (attributeValueLowercase.includes('lax')) {
-      enforcement = 'Lax'
-    }
-
-    // 5. Append an attribute to the cookie-attribute-list with an
-    //    attribute-name of "SameSite" and an attribute-value of
-    //    enforcement.
-    cookieAttributeList.sameSite = enforcement
   } else {
     cookieAttributeList.unparsed ??= []
 
@@ -31520,40 +31761,35 @@ const tail = Buffer.from([0x00, 0x00, 0xff, 0xff])
 const kBuffer = Symbol('kBuffer')
 const kLength = Symbol('kLength')
 
-// Default maximum decompressed message size: 4 MB
-const kDefaultMaxDecompressedSize = 4 * 1024 * 1024
-
 class PerMessageDeflate {
   /** @type {import('node:zlib').InflateRaw} */
   #inflate
 
   #options = {}
 
-  /** @type {boolean} */
-  #aborted = false
-
-  /** @type {Function|null} */
-  #currentCallback = null
+  #maxPayloadSize = 0
 
   /**
    * @param {Map<string, string>} extensions
    */
-  constructor (extensions) {
+  constructor (extensions, options) {
     this.#options.serverNoContextTakeover = extensions.has('server_no_context_takeover')
     this.#options.serverMaxWindowBits = extensions.get('server_max_window_bits')
+
+    this.#maxPayloadSize = options.maxPayloadSize
   }
 
+  /**
+   * Decompress a compressed payload.
+   * @param {Buffer} chunk Compressed data
+   * @param {boolean} fin Final fragment flag
+   * @param {Function} callback Callback function
+   */
   decompress (chunk, fin, callback) {
     // An endpoint uses the following algorithm to decompress a message.
     // 1.  Append 4 octets of 0x00 0x00 0xff 0xff to the tail end of the
     //     payload of the message.
     // 2.  Decompress the resulting data using DEFLATE.
-
-    if (this.#aborted) {
-      callback(new MessageSizeExceededError())
-      return
-    }
-
     if (!this.#inflate) {
       let windowBits = Z_DEFAULT_WINDOWBITS
 
@@ -31576,23 +31812,12 @@ class PerMessageDeflate {
       this.#inflate[kLength] = 0
 
       this.#inflate.on('data', (data) => {
-        if (this.#aborted) {
-          return
-        }
-
         this.#inflate[kLength] += data.length
 
-        if (this.#inflate[kLength] > kDefaultMaxDecompressedSize) {
-          this.#aborted = true
+        if (this.#maxPayloadSize > 0 && this.#inflate[kLength] > this.#maxPayloadSize) {
+          callback(new MessageSizeExceededError())
           this.#inflate.removeAllListeners()
-          this.#inflate.destroy()
           this.#inflate = null
-
-          if (this.#currentCallback) {
-            const cb = this.#currentCallback
-            this.#currentCallback = null
-            cb(new MessageSizeExceededError())
-          }
           return
         }
 
@@ -31605,14 +31830,13 @@ class PerMessageDeflate {
       })
     }
 
-    this.#currentCallback = callback
     this.#inflate.write(chunk)
     if (fin) {
       this.#inflate.write(tail)
     }
 
     this.#inflate.flush(() => {
-      if (this.#aborted || !this.#inflate) {
+      if (!this.#inflate) {
         return
       }
 
@@ -31620,7 +31844,6 @@ class PerMessageDeflate {
 
       this.#inflate[kBuffer].length = 0
       this.#inflate[kLength] = 0
-      this.#currentCallback = null
 
       callback(null, full)
     })
@@ -31655,6 +31878,12 @@ const {
 const { WebsocketFrameSend } = __nccwpck_require__(3264)
 const { closeWebSocketConnection } = __nccwpck_require__(6897)
 const { PerMessageDeflate } = __nccwpck_require__(9469)
+const { MessageSizeExceededError } = __nccwpck_require__(8707)
+
+function failWebsocketConnectionWithCode (ws, code, reason) {
+  closeWebSocketConnection(ws, code, reason, Buffer.byteLength(reason))
+  failWebsocketConnection(ws, reason)
+}
 
 // This code was influenced by ws released under the MIT license.
 // Copyright (c) 2011 Einar Otto Stangvik <einaros@gmail.com>
@@ -31663,6 +31892,7 @@ const { PerMessageDeflate } = __nccwpck_require__(9469)
 
 class ByteParser extends Writable {
   #buffers = []
+  #fragmentsBytes = 0
   #byteOffset = 0
   #loop = false
 
@@ -31674,18 +31904,27 @@ class ByteParser extends Writable {
   /** @type {Map<string, PerMessageDeflate>} */
   #extensions
 
+  /** @type {number} */
+  #maxFragments
+
+  /** @type {number} */
+  #maxPayloadSize
+
   /**
    * @param {import('./websocket').WebSocket} ws
    * @param {Map<string, string>|null} extensions
+   * @param {{ maxFragments?: number, maxPayloadSize?: number }} [options]
    */
-  constructor (ws, extensions) {
+  constructor (ws, extensions, options = {}) {
     super()
 
     this.ws = ws
     this.#extensions = extensions == null ? new Map() : extensions
+    this.#maxFragments = options.maxFragments ?? 0
+    this.#maxPayloadSize = options.maxPayloadSize ?? 0
 
     if (this.#extensions.has('permessage-deflate')) {
-      this.#extensions.set('permessage-deflate', new PerMessageDeflate(extensions))
+      this.#extensions.set('permessage-deflate', new PerMessageDeflate(extensions, options))
     }
   }
 
@@ -31699,6 +31938,19 @@ class ByteParser extends Writable {
     this.#loop = true
 
     this.run(callback)
+  }
+
+  #validatePayloadLength () {
+    if (
+      this.#maxPayloadSize > 0 &&
+      !isControlFrame(this.#info.opcode) &&
+      this.#info.payloadLength + this.#fragmentsBytes > this.#maxPayloadSize
+    ) {
+      failWebsocketConnectionWithCode(this.ws, 1009, 'Payload size exceeds maximum allowed size')
+      return false
+    }
+
+    return true
   }
 
   /**
@@ -31789,6 +32041,10 @@ class ByteParser extends Writable {
         if (payloadLength <= 125) {
           this.#info.payloadLength = payloadLength
           this.#state = parserStates.READ_DATA
+
+          if (!this.#validatePayloadLength()) {
+            return
+          }
         } else if (payloadLength === 126) {
           this.#state = parserStates.PAYLOADLENGTH_16
         } else if (payloadLength === 127) {
@@ -31813,6 +32069,10 @@ class ByteParser extends Writable {
 
         this.#info.payloadLength = buffer.readUInt16BE(0)
         this.#state = parserStates.READ_DATA
+
+        if (!this.#validatePayloadLength()) {
+          return
+        }
       } else if (this.#state === parserStates.PAYLOADLENGTH_64) {
         if (this.#byteOffset < 8) {
           return callback()
@@ -31835,6 +32095,10 @@ class ByteParser extends Writable {
 
         this.#info.payloadLength = lower
         this.#state = parserStates.READ_DATA
+
+        if (!this.#validatePayloadLength()) {
+          return
+        }
       } else if (this.#state === parserStates.READ_DATA) {
         if (this.#byteOffset < this.#info.payloadLength) {
           return callback()
@@ -31847,42 +32111,58 @@ class ByteParser extends Writable {
           this.#state = parserStates.INFO
         } else {
           if (!this.#info.compressed) {
-            this.#fragments.push(body)
+            if (!this.writeFragments(body)) {
+              return
+            }
+
+            if (this.#maxPayloadSize > 0 && this.#fragmentsBytes > this.#maxPayloadSize) {
+              failWebsocketConnectionWithCode(this.ws, 1009, new MessageSizeExceededError().message)
+              return
+            }
 
             // If the frame is not fragmented, a message has been received.
             // If the frame is fragmented, it will terminate with a fin bit set
             // and an opcode of 0 (continuation), therefore we handle that when
             // parsing continuation frames, not here.
             if (!this.#info.fragmented && this.#info.fin) {
-              const fullMessage = Buffer.concat(this.#fragments)
-              websocketMessageReceived(this.ws, this.#info.binaryType, fullMessage)
-              this.#fragments.length = 0
+              websocketMessageReceived(this.ws, this.#info.binaryType, this.consumeFragments())
             }
 
             this.#state = parserStates.INFO
           } else {
-            this.#extensions.get('permessage-deflate').decompress(body, this.#info.fin, (error, data) => {
-              if (error) {
-                failWebsocketConnection(this.ws, error.message)
-                return
-              }
+            this.#extensions.get('permessage-deflate').decompress(
+              body,
+              this.#info.fin,
+              (error, data) => {
+                if (error) {
+                  const code = error instanceof MessageSizeExceededError ? 1009 : 1007
+                  failWebsocketConnectionWithCode(this.ws, code, error.message)
+                  return
+                }
 
-              this.#fragments.push(data)
+                if (!this.writeFragments(data)) {
+                  return
+                }
 
-              if (!this.#info.fin) {
-                this.#state = parserStates.INFO
+                if (this.#maxPayloadSize > 0 && this.#fragmentsBytes > this.#maxPayloadSize) {
+                  failWebsocketConnectionWithCode(this.ws, 1009, new MessageSizeExceededError().message)
+                  return
+                }
+
+                if (!this.#info.fin) {
+                  this.#state = parserStates.INFO
+                  this.#loop = true
+                  this.run(callback)
+                  return
+                }
+
+                websocketMessageReceived(this.ws, this.#info.binaryType, this.consumeFragments())
+
                 this.#loop = true
+                this.#state = parserStates.INFO
                 this.run(callback)
-                return
               }
-
-              websocketMessageReceived(this.ws, this.#info.binaryType, Buffer.concat(this.#fragments))
-
-              this.#loop = true
-              this.#state = parserStates.INFO
-              this.#fragments.length = 0
-              this.run(callback)
-            })
+            )
 
             this.#loop = false
             break
@@ -31932,6 +32212,35 @@ class ByteParser extends Writable {
     this.#byteOffset -= n
 
     return buffer
+  }
+
+  writeFragments (fragment) {
+    if (
+      this.#maxFragments > 0 &&
+      this.#fragments.length === this.#maxFragments
+    ) {
+      failWebsocketConnectionWithCode(this.ws, 1008, 'Too many message fragments')
+      return false
+    }
+
+    this.#fragmentsBytes += fragment.length
+    this.#fragments.push(fragment)
+    return true
+  }
+
+  consumeFragments () {
+    const fragments = this.#fragments
+
+    if (fragments.length === 1) {
+      this.#fragmentsBytes = 0
+      return fragments.shift()
+    }
+
+    const output = Buffer.concat(fragments, this.#fragmentsBytes)
+    this.#fragments = []
+    this.#fragmentsBytes = 0
+
+    return output
   }
 
   parseCloseBody (data) {
@@ -32965,7 +33274,14 @@ class WebSocket extends EventTarget {
     // once this happens, the connection is open
     this[kResponse] = response
 
-    const parser = new ByteParser(this, parsedExtensions)
+    const webSocketOptions = this[kController]?.dispatcher?.webSocketOptions
+    const maxFragments = webSocketOptions?.maxFragments
+    const maxPayloadSize = webSocketOptions?.maxPayloadSize
+
+    const parser = new ByteParser(this, parsedExtensions, {
+      maxFragments,
+      maxPayloadSize
+    })
     parser.on('drain', onParserDrain)
     parser.on('error', onParserError.bind(this))
 
@@ -43970,11 +44286,13 @@ var esm_require = (0,external_module_namespaceObject.createRequire)('/');
 // However, the vast majority of the codebase has diverged from UZIP.js to increase performance and reduce bundle size.
 // Sometimes 0 will appear where -1 would be more appropriate. This is because using a uint
 // is better for memory in most engines (I *think*).
+var _a;
 // Mediocre shim
 var Worker;
+var isMarkedAsUntransferable;
 var workerAdd = ";var __w=require('worker_threads');__w.parentPort.on('message',function(m){onmessage({data:m})}),postMessage=function(m,t){__w.parentPort.postMessage(m,t)},close=process.exit;self=global";
 try {
-    Worker = esm_require('worker_threads').Worker;
+    (_a = esm_require('worker_threads'), Worker = _a.Worker, isMarkedAsUntransferable = _a.isMarkedAsUntransferable);
 }
 catch (e) {
 }
@@ -43987,6 +44305,8 @@ var wk = Worker ? function (c, _, msg, transfer, cb) {
         if (c && !done)
             cb(new Error('exited with code ' + c), null);
     });
+    if (isMarkedAsUntransferable)
+        transfer = transfer.filter(function (t) { return !isMarkedAsUntransferable(t); });
     w.postMessage(msg, transfer);
     w.terminate = function () {
         done = true;
@@ -44167,7 +44487,7 @@ var ec = [
     'invalid distance',
     'stream finished',
     'no stream handler',
-    ,
+    , // determined by compression function
     'no callback',
     'invalid UTF-8 data',
     'extra field too long',
@@ -44884,12 +45204,12 @@ var cbify = function (dat, opts, fns, init, id, cb) {
 var astrm = function (strm) {
     strm.ondata = function (dat, final) { return postMessage([dat, final], [dat.buffer]); };
     return function (ev) {
-        if (ev.data.length) {
+        if (ev.data[0]) {
             strm.push(ev.data[0], ev.data[1]);
             postMessage([ev.data[0].length]);
         }
         else
-            strm.flush();
+            strm.flush(ev.data[1]);
     };
 };
 // async stream attach
@@ -44919,17 +45239,19 @@ var astrmify = function (fns, strm, opts, init, id, flush, ext) {
         if (t)
             strm.ondata(err(4, 0, 1), null, !!f);
         strm.queuedSize += d.length;
-        w.postMessage([d, t = f], [d.buffer]);
+        // can fail for cross-realm Uint8Array, but ok - only a small performance penalty
+        w.postMessage([d, t = f], d.buffer instanceof ArrayBuffer ? [d.buffer] : []);
     };
     strm.terminate = function () { w.terminate(); };
     if (flush) {
-        strm.flush = function () { w.postMessage([]); };
+        strm.flush = function (sync) { w.postMessage([0, sync]); };
     }
 };
 // read 2 bytes
 var b2 = function (d, b) { return d[b] | (d[b + 1] << 8); };
 // read 4 bytes
 var b4 = function (d, b) { return (d[b] | (d[b + 1] << 8) | (d[b + 2] << 16) | (d[b + 3] << 24)) >>> 0; };
+// read 8 bytes
 var b8 = function (d, b) { return b4(d, b) + (b4(d, b + 4) * 4294967296); };
 // write bytes
 var wbytes = function (d, b, v) {
@@ -45050,18 +45372,37 @@ var Deflate = /*#__PURE__*/ ((/* unused pure expression or super */ null && (fun
             this.p(this.b, final || false);
             this.s.w = this.s.i, this.s.i -= 2;
         }
+        if (final) {
+            // cleanup unneeded buffers/state to reduce memory usage
+            this.s = this.o = {};
+            this.b = et;
+        }
     };
     /**
      * Flushes buffered uncompressed data. Useful to immediately retrieve the
      * deflated output for small inputs.
+     * @param sync Whether to flush to a byte boundary. A sync flush takes 4-5
+     *             extra bytes, but guarantees all pushed data is immediately
+     *             decompressible. A separate DEFLATE stream may be concatenated
+     *             with the current output after a sync flush.
      */
-    Deflate.prototype.flush = function () {
+    Deflate.prototype.flush = function (sync) {
         if (!this.ondata)
             err(5);
         if (this.s.l)
             err(4);
         this.p(this.b, false);
         this.s.w = this.s.i, this.s.i -= 2;
+        // could technically skip writing the type-0 block for (this.s.r & 7) == 0,
+        // but the deterministic trailer (00 00 FF FF) is useful in some situations
+        if (sync) {
+            var c = new u8(6);
+            c[0] = this.s.r >> 3;
+            // write empty, non-final type-0 block
+            var ep = wfblk(c, this.s.r, et);
+            this.s.r = 0;
+            this.ondata(c.subarray(0, ep >> 3), false);
+        }
     };
     return Deflate;
 }())));
@@ -45172,12 +45513,6 @@ function inflate(data, opts, cb) {
         bInflt
     ], function (ev) { return pbf(inflateSync(ev.data[0], gopt(ev.data[1]))); }, 1, cb);
 }
-/**
- * Expands DEFLATE data with no wrapper
- * @param data The data to decompress
- * @param opts The decompression options
- * @returns The decompressed version of the data
- */
 function inflateSync(data, opts) {
     return inflt(data, { i: 2 }, opts && opts.out, opts && opts.dictionary);
 }
@@ -45213,9 +45548,12 @@ var Gzip = /*#__PURE__*/ ((/* unused pure expression or super */ null && (functi
     /**
      * Flushes buffered uncompressed data. Useful to immediately retrieve the
      * GZIPped output for small inputs.
+     * @param sync Whether to flush to a byte boundary. A sync flush takes 4-5
+     *             extra bytes, but guarantees all pushed data is immediately
+     *             decompressible.
      */
-    Gzip.prototype.flush = function () {
-        Deflate.prototype.flush.call(this);
+    Gzip.prototype.flush = function (sync) {
+        Deflate.prototype.flush.call(this, sync);
     };
     return Gzip;
 }())));
@@ -45293,13 +45631,16 @@ var Gunzip = /*#__PURE__*/ ((/* unused pure expression or super */ null && (func
         }
         // necessary to prevent TS from using the closure value
         // This allows for workerization to function correctly
-        Inflate.prototype.c.call(this, final);
+        Inflate.prototype.c.call(this, 0);
         // process concatenated GZIP
-        if (this.s.f && !this.s.l && !final) {
+        if (this.s.f && !this.s.l) {
             this.v = shft(this.s.p) + 9;
             this.s = { i: 0 };
             this.o = new u8(0);
             this.push(new u8(0), final);
+        }
+        else if (final) {
+            Inflate.prototype.c.call(this, final);
         }
     };
     return Gunzip;
@@ -45335,12 +45676,6 @@ function gunzip(data, opts, cb) {
         function () { return [gunzipSync]; }
     ], function (ev) { return pbf(gunzipSync(ev.data[0], ev.data[1])); }, 3, cb);
 }
-/**
- * Expands GZIP data
- * @param data The data to decompress
- * @param opts The decompression options
- * @returns The decompressed version of the data
- */
 function gunzipSync(data, opts) {
     var st = gzs(data);
     if (st + 8 > data.length)
@@ -45376,9 +45711,12 @@ var Zlib = /*#__PURE__*/ ((/* unused pure expression or super */ null && (functi
     /**
      * Flushes buffered uncompressed data. Useful to immediately retrieve the
      * zlibbed output for small inputs.
+     * @param sync Whether to flush to a byte boundary. A sync flush takes 4-5
+     *             extra bytes, but guarantees all pushed data is immediately
+     *             decompressible.
      */
-    Zlib.prototype.flush = function () {
-        Deflate.prototype.flush.call(this);
+    Zlib.prototype.flush = function (sync) {
+        Deflate.prototype.flush.call(this, sync);
     };
     return Zlib;
 }())));
@@ -45485,12 +45823,6 @@ function unzlib(data, opts, cb) {
         function () { return [unzlibSync]; }
     ], function (ev) { return pbf(unzlibSync(ev.data[0], gopt(ev.data[1]))); }, 5, cb);
 }
-/**
- * Expands Zlib data
- * @param data The data to decompress
- * @param opts The decompression options
- * @returns The decompressed version of the data
- */
 function unzlibSync(data, opts) {
     return inflt(data.subarray(zls(data, opts && opts.dictionary), -4), { i: 2 }, opts && opts.out, opts && opts.dictionary);
 }
@@ -45611,7 +45943,7 @@ var fltn = function (d, p, t, o) {
         var val = d[k], n = p + k, op = o;
         if (Array.isArray(val))
             op = mrg(o, val[1]), val = val[0];
-        if (val instanceof u8)
+        if (ArrayBuffer.isView(val))
             t[n] = [val, op];
         else {
             t[n += '/'] = [new u8(0), op];
@@ -45796,15 +46128,30 @@ var dbf = function (l) { return l == 1 ? 3 : l < 6 ? 2 : l == 9 ? 1 : 0; };
 var slzh = function (d, b) { return b + 30 + b2(d, b + 26) + b2(d, b + 28); };
 // read zip header
 var zh = function (d, b, z) {
-    var fnl = b2(d, b + 28), fn = strFromU8(d.subarray(b + 46, b + 46 + fnl), !(b2(d, b + 8) & 2048)), es = b + 46 + fnl, bs = b4(d, b + 20);
-    var _a = z && bs == 4294967295 ? z64e(d, es) : [bs, b4(d, b + 24), b4(d, b + 42)], sc = _a[0], su = _a[1], off = _a[2];
-    return [b2(d, b + 10), sc, su, fn, es + b2(d, b + 30) + b2(d, b + 32), off];
+    var fnl = b2(d, b + 28), efl = b2(d, b + 30), fn = strFromU8(d.subarray(b + 46, b + 46 + fnl), !(b2(d, b + 8) & 2048)), es = b + 46 + fnl;
+    var _a = z64hs(d, es, efl, z, b4(d, b + 20), b4(d, b + 24), b4(d, b + 42)), sc = _a[0], su = _a[1], off = _a[2];
+    return [b2(d, b + 10), sc, su, fn, es + efl + b2(d, b + 32), off];
 };
-// read zip64 extra field
-var z64e = function (d, b) {
-    for (; b2(d, b) != 1; b += 4 + b2(d, b + 2))
-        ;
-    return [b8(d, b + 12), b8(d, b + 4), b8(d, b + 20)];
+// read zip64 header sizes
+var z64hs = function (d, b, l, z, sc, su, off) {
+    var nsc = sc == 4294967295, nsu = su == 4294967295, noff = off == 4294967295, e = b + l;
+    var nf = nsc + nsu + noff;
+    if (z && nf) {
+        for (; b + 4 < e; b += 4 + b2(d, b + 2)) {
+            if (b2(d, b) == 1) {
+                return [
+                    nsc ? b8(d, b + 4 + 8 * nsu) : sc,
+                    nsu ? b8(d, b + 4) : su,
+                    noff ? b8(d, b + 4 + 8 * (nsu + nsc)) : off,
+                    1
+                ];
+            }
+        }
+        // z == 2 for unknown whether or not zip64
+        if (z < 2)
+            err(13);
+    }
+    return [sc, su, off, 0];
 };
 // extra field length
 var exfl = function (ex) {
@@ -45906,6 +46253,8 @@ var ZipPassThrough = /*#__PURE__*/ ((/* unused pure expression or super */ null 
         this.size += chunk.length;
         if (final)
             this.crc = this.c.d();
+        // we shouldn't really do this cast, but properly handling ArrayBufferLike
+        // makes the API unergonomic with Buffer
         this.process(chunk, final || false);
     };
     return ZipPassThrough;
@@ -46285,8 +46634,9 @@ function zipSync(data, opts) {
 var UnzipPassThrough = /*#__PURE__*/ ((/* unused pure expression or super */ null && (function () {
     function UnzipPassThrough() {
     }
-    UnzipPassThrough.prototype.push = function (data, final) {
-        this.ondata(null, data, final);
+    UnzipPassThrough.prototype.push = function (chunk, final) {
+        // same as ZipPassThrough: cast to retain Buffer ergonomics
+        this.ondata(null, chunk, final);
     };
     UnzipPassThrough.compression = 0;
     return UnzipPassThrough;
@@ -46306,9 +46656,9 @@ var UnzipInflate = /*#__PURE__*/ ((/* unused pure expression or super */ null &&
             _this.ondata(null, dat, final);
         });
     }
-    UnzipInflate.prototype.push = function (data, final) {
+    UnzipInflate.prototype.push = function (chunk, final) {
         try {
-            this.i.push(data, final);
+            this.i.push(chunk, final);
         }
         catch (e) {
             this.ondata(e, null, final);
@@ -46339,10 +46689,10 @@ var AsyncUnzipInflate = /*#__PURE__*/ ((/* unused pure expression or super */ nu
             this.terminate = this.i.terminate;
         }
     }
-    AsyncUnzipInflate.prototype.push = function (data, final) {
+    AsyncUnzipInflate.prototype.push = function (chunk, final) {
         if (this.i.terminate)
-            data = slc(data, 0);
-        this.i.push(data, final);
+            chunk = slc(chunk, 0);
+        this.i.push(chunk, final);
     };
     AsyncUnzipInflate.compression = 8;
     return AsyncUnzipInflate;
@@ -46399,7 +46749,6 @@ var Unzip = /*#__PURE__*/ ((/* unused pure expression or super */ null && (funct
             }
             var l = buf.length, oc = this.c, add = oc && this.d;
             var _loop_2 = function () {
-                var _a;
                 var sig = b4(buf, i);
                 if (sig == 0x4034B50) {
                     f = 1, is = i;
@@ -46410,13 +46759,11 @@ var Unzip = /*#__PURE__*/ ((/* unused pure expression or super */ null && (funct
                         var chks_3 = [];
                         this_1.k.unshift(chks_3);
                         f = 2;
-                        var sc_1 = b4(buf, i + 18), su_1 = b4(buf, i + 22);
+                        var lsc = b4(buf, i + 18), lsu = b4(buf, i + 22);
                         var fn_1 = strFromU8(buf.subarray(i + 30, i += 30 + fnl), !u);
-                        if (sc_1 == 4294967295) {
-                            _a = dd ? [-2] : z64e(buf, i), sc_1 = _a[0], su_1 = _a[1];
-                        }
-                        else if (dd)
-                            sc_1 = -1;
+                        var _a = z64hs(buf, i, es, 2, lsc, lsu, 0), sc_1 = _a[0], su_1 = _a[1], z64 = _a[3];
+                        if (dd)
+                            sc_1 = -1 - z64;
                         i += es;
                         this_1.c = sc_1;
                         var d_1;
@@ -46529,7 +46876,7 @@ function unzip(data, opts, cb) {
     if (lft) {
         var c = lft;
         var o = b4(data, e + 16);
-        var z = o == 4294967295 || c == 65535;
+        var z = b4(data, e - 20) == 0x7064B50;
         if (z) {
             var ze = b4(data, e - 12);
             z = b4(data, ze) == 0x6064B50;
@@ -46609,7 +46956,7 @@ function unzipSync(data, opts) {
     if (!c)
         return {};
     var o = b4(data, e + 16);
-    var z = o == 4294967295 || c == 65535;
+    var z = b4(data, e - 20) == 0x7064B50;
     if (z) {
         var ze = b4(data, e - 12);
         z = b4(data, ze) == 0x6064B50;
@@ -46675,9 +47022,11 @@ async function run() {
             continue;
         }
         let version = mod.latest;
-        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(a.modVersion, b.modVersion)
-            || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
-            || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a)) ?? [];
+        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(a.modVersion, b.modVersion) ||
+            supportsGameVersion(gameVersion, b) -
+                supportsGameVersion(gameVersion, a) ||
+            supportsPriorGameVersion(gameVersion, b) -
+                supportsPriorGameVersion(gameVersion, a)) ?? [];
         version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
         if (!version) {
             warning(`No version of mod '${depName}' found that satisfies '${depVersion}'.`);
@@ -46699,10 +47048,14 @@ async function run() {
     lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`, "utf8");
 }
 function supportsGameVersion(gameVersion, modVersion) {
-    return modVersion.supportedGameVersions.find(gv => gv.id == gameVersion.id) ? 1 : 0;
+    return modVersion.supportedGameVersions.find((gv) => gv.id == gameVersion.id)
+        ? 1
+        : 0;
 }
 function supportsPriorGameVersion(gameVersion, modVersion) {
-    return modVersion.supportedGameVersions.find(gv => gv.version <= gameVersion.version) ? 1 : 0;
+    return modVersion.supportedGameVersions.find((gv) => gv.version <= gameVersion.version)
+        ? 1
+        : 0;
 }
 async function fetchJson(url) {
     const response = await fetch(url, {

@@ -42,12 +42,15 @@ jest.unstable_mockModule("child_process", () => ({
   spawn: childProcessSpawn,
 }));
 
-jest.mock("fs-extra", () => ({
-  ...fs,
-  appendFileSync: appendFileSync,
-  readFileSync: readFileSync,
-  writeFileSync: writeFileSync,
-  copySync: copySync,
+jest.unstable_mockModule("fs-extra", () => ({
+  __esModule: true,
+  default: {
+    ...fs,
+    appendFileSync: appendFileSync,
+    readFileSync: readFileSync,
+    writeFileSync: writeFileSync,
+    copySync: copySync,
+  },
 }));
 
 const { run } = await import("../src/main.js");
@@ -284,9 +287,9 @@ describe("main", () => {
               supportedGameVersions: [{ id: 2 }],
             },
             {
-                modVersion: "1.7.0",
-                zipHash: "600a65978384cf2e7ec725a9",
-                supportedGameVersions: [{ id: 1 }],
+              modVersion: "1.7.0",
+              zipHash: "600a65978384cf2e7ec725a9",
+              supportedGameVersions: [{ id: 1 }],
             },
           ],
         },
@@ -303,9 +306,9 @@ describe("main", () => {
               supportedGameVersions: [{ id: 2 }],
             },
             {
-                modVersion: "3.1.0",
-                zipHash: "6015b97e0eef816aa6d0c18a",
-                supportedGameVersions: [{ id: 1 }],
+              modVersion: "3.1.0",
+              zipHash: "6015b97e0eef816aa6d0c18a",
+              supportedGameVersions: [{ id: 1 }],
             },
           ],
         },
@@ -485,7 +488,9 @@ describe("main", () => {
 
     await run();
 
-    expect(core.warning).toHaveBeenCalledWith("Game version '1.15.3' doesn't exist; using mods from latest version '1.16.1'");
+    expect(core.warning).toHaveBeenCalledWith(
+      "Game version '1.15.3' doesn't exist; using mods from latest version '1.16.1'",
+    );
   });
 
   it("logs when a mod version doesn't exist", async () => {

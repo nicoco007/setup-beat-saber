@@ -64,15 +64,16 @@ export async function run() {
         await fetchJson<ModResponse>(
           `https://beatmods.com/api/mods/${mod.mod.id}`,
         )
-      )?.mod?.versions?.sort((a, b) =>
-        semver.compare(a.modVersion, b.modVersion)
-          || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
-          || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a)
+      )?.mod?.versions?.sort(
+        (a, b) =>
+          semver.compare(a.modVersion, b.modVersion) ||
+          supportsGameVersion(gameVersion, b) -
+            supportsGameVersion(gameVersion, a) ||
+          supportsPriorGameVersion(gameVersion, b) -
+            supportsPriorGameVersion(gameVersion, a),
       ) ?? [];
 
-    version = versions.find(
-      (v) => semver.satisfies(v.modVersion, depVersion)
-    );
+    version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
 
     if (!version) {
       warning(
@@ -116,12 +117,24 @@ export async function run() {
   );
 }
 
-function supportsGameVersion(gameVersion: Version, modVersion: ModVersion): number {
-  return modVersion.supportedGameVersions.find(gv => gv.id == gameVersion.id) ? 1 : 0;
+function supportsGameVersion(
+  gameVersion: Version,
+  modVersion: ModVersion,
+): number {
+  return modVersion.supportedGameVersions.find((gv) => gv.id == gameVersion.id)
+    ? 1
+    : 0;
 }
 
-function supportsPriorGameVersion(gameVersion: Version, modVersion: ModVersion): number {
-  return modVersion.supportedGameVersions.find(gv => gv.version <= gameVersion.version) ? 1 : 0;
+function supportsPriorGameVersion(
+  gameVersion: Version,
+  modVersion: ModVersion,
+): number {
+  return modVersion.supportedGameVersions.find(
+    (gv) => gv.version <= gameVersion.version,
+  )
+    ? 1
+    : 0;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -187,9 +200,7 @@ async function downloadReferenceAssemblies(
   }
 }
 
-function unzipAsync(
-  data: Uint8Array,
-): Promise<Record<string, Uint8Array>> {
+function unzipAsync(data: Uint8Array): Promise<Record<string, Uint8Array>> {
   return new Promise((resolve, reject) => {
     unzip(data, (err, result) => {
       if (err) reject(err);
