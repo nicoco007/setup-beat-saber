@@ -343,7 +343,7 @@ describe("main", () => {
     await run();
 
     expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
       { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(
@@ -361,16 +361,87 @@ describe("main", () => {
 
     await run();
 
+    expect(core.warning).toHaveBeenCalledWith(
+      "'BSIPA' v4.1.3 does not support 1.16.1.",
+    );
+    expect(core.warning).toHaveBeenCalledWith(
+      "'BS Utils' v1.7.0 does not support 1.16.1.",
+    );
+    expect(core.warning).toHaveBeenCalledWith(
+      "'SongCore' v3.1.0 does not support 1.16.1.",
+    );
     expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/60b14ea32d008b3daa41e8e0.zip",
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
       { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/60b15a4b2d008b3daa41e900.zip",
+      "https://beatmods.com/cdn/mod/600a65978384cf2e7ec725a9.zip",
       { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/60cbfebfaf1e3d4577e0366e.zip",
+      "https://beatmods.com/cdn/mod/6015b97e0eef816aa6d0c18a.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
+    );
+  });
+
+  it("uses version that supports specified game version if multiple mod versions have the same version", async () => {
+    mockFetch(
+      "https://beatmods.com/api/mods/1",
+      JSON.stringify({
+        mod: {
+          versions: [
+            {
+              modVersion: "4.1.3",
+              zipHash: "600a59038384cf2e7ec72583",
+              supportedGameVersions: [{ id: 2 }],
+            },
+            {
+              modVersion: "4.1.3",
+              zipHash: "600a59038384cf2e7ec72581",
+              supportedGameVersions: [{ id: 1 }],
+            },
+          ],
+        },
+      }),
+    );
+
+    await run();
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
+      { headers: { "User-Agent": "setup-beat-saber" } },
+    );
+  });
+
+  it("uses version that supports a prior game version if multiple mod versions have the same version", async () => {
+    mockFetch(
+      "https://beatmods.com/api/mods/1",
+      JSON.stringify({
+        mod: {
+          versions: [
+            {
+              modVersion: "4.1.3",
+              zipHash: "600a59038384cf2e7ec72583",
+              supportedGameVersions: [{ id: 4, version: "1.16.2" }],
+            },
+            {
+              modVersion: "4.1.3",
+              zipHash: "600a59038384cf2e7ec72581",
+              supportedGameVersions: [{ id: 3, version: "1.13.2" }],
+            },
+          ],
+        },
+      }),
+    );
+
+    await run();
+
+    expect(core.warning).toHaveBeenCalledWith(
+      "'BSIPA' v4.1.3 does not support 1.13.2.",
+    );
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
       { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
@@ -395,7 +466,7 @@ describe("main", () => {
     await run();
 
     expect(core.warning).toHaveBeenCalledWith(
-      "No version of mod 'BSIPA' found for game version '1.13.2'. Using mod version match '4.1.6'.",
+      "'BSIPA' v4.1.6 does not support 1.13.2.",
     );
   });
 
@@ -456,7 +527,7 @@ describe("main", () => {
     await run();
 
     expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
       { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(
@@ -494,7 +565,7 @@ describe("main", () => {
     await run();
 
     expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
       { headers: { "User-Agent": "setup-beat-saber" } },
     );
     expect(fetch).toHaveBeenCalledWith(

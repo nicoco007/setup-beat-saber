@@ -46675,19 +46675,16 @@ async function run() {
             continue;
         }
         let version = mod.latest;
-        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(b.modVersion, a.modVersion)) ?? [];
-        version = versions.find((v) => semver.satisfies(v.modVersion, depVersion) &&
-            v.supportedGameVersions.map((v) => v.id).includes(gameVersion.id));
+        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(a.modVersion, b.modVersion)
+            || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
+            || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a)) ?? [];
+        version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
         if (!version) {
-            version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
-            if (!version) {
-                warning(`No version of mod '${depName}' found that satisfies '${depVersion}'.`);
-                continue;
-            }
-            warning(`No version of mod '${depName}' found for game version '${gameVersion.version}'. Using mod version match '${version.modVersion}'.`);
+            warning(`No version of mod '${depName}' found that satisfies '${depVersion}'.`);
+            continue;
         }
-        else {
-            info(`Using mod '${depName}' version '${version.modVersion}' for game version '${gameVersion.version}'.`);
+        if (!version.supportedGameVersions.find((v) => v.id == gameVersion.id)) {
+            warning(`'${depName}' v${version.modVersion} does not support ${gameVersion.version}.`);
         }
         info(`Downloading mod '${depName}' version '${version.modVersion}'`);
         await downloadAndExtract(`https://beatmods.com/cdn/mod/${version.zipHash}.zip`, extractPath);
@@ -46700,6 +46697,12 @@ async function run() {
         }
     }
     lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`, "utf8");
+}
+function supportsGameVersion(gameVersion, modVersion) {
+    return modVersion.supportedGameVersions.find(gv => gv.id == gameVersion.id) ? 1 : 0;
+}
+function supportsPriorGameVersion(gameVersion, modVersion) {
+    return modVersion.supportedGameVersions.find(gv => gv.version <= gameVersion.version) ? 1 : 0;
 }
 async function fetchJson(url) {
     const response = await fetch(url, {

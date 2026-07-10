@@ -65,33 +65,25 @@ export async function run() {
           `https://beatmods.com/api/mods/${mod.mod.id}`,
         )
       )?.mod?.versions?.sort((a, b) =>
-        semver.compare(b.modVersion, a.modVersion),
+        semver.compare(a.modVersion, b.modVersion)
+          || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
+          || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a)
       ) ?? [];
 
     version = versions.find(
-      (v) =>
-        semver.satisfies(v.modVersion, depVersion) &&
-        v.supportedGameVersions.map((v) => v.id).includes(gameVersion.id),
+      (v) => semver.satisfies(v.modVersion, depVersion)
     );
 
     if (!version) {
-      version = versions.find((v) =>
-        semver.satisfies(v.modVersion, depVersion),
-      );
-
-      if (!version) {
-        warning(
-          `No version of mod '${depName}' found that satisfies '${depVersion}'.`,
-        );
-        continue;
-      }
-
       warning(
-        `No version of mod '${depName}' found for game version '${gameVersion.version}'. Using mod version match '${version.modVersion}'.`,
+        `No version of mod '${depName}' found that satisfies '${depVersion}'.`,
       );
-    } else {
-      info(
-        `Using mod '${depName}' version '${version.modVersion}' for game version '${gameVersion.version}'.`,
+      continue;
+    }
+
+    if (!version.supportedGameVersions.find((v) => v.id == gameVersion.id)) {
+      warning(
+        `'${depName}' v${version.modVersion} does not support ${gameVersion.version}.`,
       );
     }
 
@@ -122,6 +114,14 @@ export async function run() {
     `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`,
     "utf8",
   );
+}
+
+function supportsGameVersion(gameVersion: Version, modVersion: ModVersion): number {
+  return modVersion.supportedGameVersions.find(gv => gv.id == gameVersion.id) ? 1 : 0;
+}
+
+function supportsPriorGameVersion(gameVersion: Version, modVersion: ModVersion): number {
+  return modVersion.supportedGameVersions.find(gv => gv.version <= gameVersion.version) ? 1 : 0;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
