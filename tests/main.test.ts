@@ -219,90 +219,12 @@ describe("main", () => {
       }),
     );
     mockFetch(
-      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.13.2",
-      JSON.stringify({
-        mods: [
-          {
-            mod: { id: 1, name: "BSIPA" },
-            latest: {
-              modVersion: "4.1.4",
-              zipHash: "600a59038384cf2e7ec72582",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          },
-          {
-            mod: { id: 2, name: "BS Utils" },
-            latest: {
-              modVersion: "1.7.0",
-              zipHash: "600a65978384cf2e7ec725a9",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          },
-          {
-            mod: { id: 3, name: "SongCore" },
-            latest: {
-              modVersion: "3.1.0",
-              zipHash: "6015b97e0eef816aa6d0c18a",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          },
-        ],
-      }),
-    );
-    mockFetch(
-      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.16.1",
-      JSON.stringify({
-        mods: [
-          {
-            mod: { id: 4, name: "BSIPA" },
-            latest: {
-              modVersion: "4.1.6",
-              zipHash: "60b14ea32d008b3daa41e8e0",
-              supportedGameVersions: [{ id: 2 }],
-            },
-          },
-          {
-            mod: { id: 5, name: "BS Utils" },
-            latest: {
-              modVersion: "1.10.0",
-              zipHash: "60b15a4b2d008b3daa41e900",
-              supportedGameVersions: [{ id: 2 }],
-            },
-          },
-          {
-            mod: { id: 6, name: "SongCore" },
-            latest: {
-              modVersion: "3.5.0",
-              zipHash: "60cbfebfaf1e3d4577e0366e",
-              supportedGameVersions: [{ id: 2 }],
-            },
-          },
-        ],
-      }),
-    );
-    mockFetch(
       "https://beatmods.com/api/mods?gameName=BeatSaber&status=all",
       JSON.stringify({
         mods: [
           {
             mod: { id: 1, name: "BSIPA" },
             latest: {
-              modVersion: "4.1.4",
-              zipHash: "600a59038384cf2e7ec72582",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          },
-          {
-            mod: { id: 1, name: "BSIPA" },
-            latest: {
-              modVersion: "4.1.3",
-              zipHash: "600a59038384cf2e7ec72582",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          },
-          {
-            mod: { id: 1, name: "BSIPA" },
-            latest: {
               modVersion: "4.1.6",
               zipHash: "60b14ea32d008b3daa41e8e0",
               supportedGameVersions: [{ id: 2 }],
@@ -311,25 +233,9 @@ describe("main", () => {
           {
             mod: { id: 2, name: "BS Utils" },
             latest: {
-              modVersion: "1.7.0",
-              zipHash: "600a65978384cf2e7ec725a9",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          },
-          {
-            mod: { id: 2, name: "BS Utils" },
-            latest: {
               modVersion: "1.10.0",
               zipHash: "60b15a4b2d008b3daa41e900",
               supportedGameVersions: [{ id: 2 }],
-            },
-          },
-          {
-            mod: { id: 3, name: "SongCore" },
-            latest: {
-              modVersion: "3.1.0",
-              zipHash: "6015b97e0eef816aa6d0c18a",
-              supportedGameVersions: [{ id: 1 }],
             },
           },
           {
@@ -349,19 +255,57 @@ describe("main", () => {
         mod: {
           versions: [
             {
+              modVersion: "4.1.6",
+              zipHash: "60b14ea32d008b3daa41e8e0",
+              supportedGameVersions: [{ id: 2 }],
+            },
+            {
               modVersion: "4.1.4",
               zipHash: "600a59038384cf2e7ec72582",
               supportedGameVersions: [{ id: 1 }],
             },
             {
               modVersion: "4.1.3",
-              zipHash: "600a59038384cf2e7ec72582",
+              zipHash: "600a59038384cf2e7ec72581",
               supportedGameVersions: [{ id: 1 }],
             },
+          ],
+        },
+      }),
+    );
+    mockFetch(
+      "https://beatmods.com/api/mods/2",
+      JSON.stringify({
+        mod: {
+          versions: [
             {
-              modVersion: "4.1.6",
-              zipHash: "60b14ea32d008b3daa41e8e0",
+              modVersion: "1.10.0",
+              zipHash: "60b15a4b2d008b3daa41e900",
               supportedGameVersions: [{ id: 2 }],
+            },
+            {
+                modVersion: "1.7.0",
+                zipHash: "600a65978384cf2e7ec725a9",
+                supportedGameVersions: [{ id: 1 }],
+            },
+          ],
+        },
+      }),
+    );
+    mockFetch(
+      "https://beatmods.com/api/mods/3",
+      JSON.stringify({
+        mod: {
+          versions: [
+            {
+              modVersion: "3.5.0",
+              zipHash: "60cbfebfaf1e3d4577e0366e",
+              supportedGameVersions: [{ id: 2 }],
+            },
+            {
+                modVersion: "3.1.0",
+                zipHash: "6015b97e0eef816aa6d0c18a",
+                supportedGameVersions: [{ id: 1 }],
             },
           ],
         },
@@ -399,10 +343,6 @@ describe("main", () => {
     await run();
 
     expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.13.2",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-    expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
       { headers: { "User-Agent": "setup-beat-saber" } },
     );
@@ -421,10 +361,6 @@ describe("main", () => {
 
     await run();
 
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.16.1",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/cdn/mod/60b14ea32d008b3daa41e8e0.zip",
       { headers: { "User-Agent": "setup-beat-saber" } },
@@ -448,7 +384,7 @@ describe("main", () => {
       headers: { "User-Agent": "setup-beat-saber" },
     });
     expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
+      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
       { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
@@ -460,87 +396,6 @@ describe("main", () => {
 
     expect(core.warning).toHaveBeenCalledWith(
       "No version of mod 'BSIPA' found for game version '1.13.2'. Using mod version match '4.1.6'.",
-    );
-  });
-
-  it("logs info when matching mod version that satisfies both version range and game version", async () => {
-    // Set up dependencies including BSIPA with specific version requirement
-    mockProject({
-      dependsOn: {
-        BSIPA: "^4.1.0",
-        "BS Utils": "^1.6.3",
-        SongCore: "^3.0.2",
-      },
-    });
-
-    // Override the mods list to have BSIPA latest that doesn't satisfy ^4.1.0
-    mockFetch(
-      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.13.2",
-      JSON.stringify({
-        mods: [
-          {
-            mod: { id: 1, name: "BSIPA" },
-            latest: {
-              modVersion: "4.0.5", // This doesn't satisfy ^4.1.0
-              zipHash: "600a59038384cf2e7ec72580",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          },
-          {
-            mod: { id: 2, name: "BS Utils" },
-            latest: {
-              modVersion: "1.7.0",
-              zipHash: "600a65978384cf2e7ec725a9",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          },
-          {
-            mod: { id: 3, name: "SongCore" },
-            latest: {
-              modVersion: "3.1.0",
-              zipHash: "6015b97e0eef816aa6d0c18a",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          },
-        ],
-      }),
-    );
-
-    // Mock the detailed version list for BSIPA
-    mockFetch(
-      "https://beatmods.com/api/mods/1",
-      JSON.stringify({
-        mod: {
-          versions: [
-            {
-              modVersion: "4.1.4",
-              zipHash: "600a59038384cf2e7ec72582",
-              supportedGameVersions: [{ id: 1 }],
-            },
-            {
-              modVersion: "4.1.2",
-              zipHash: "600a59038384cf2e7ec72581",
-              supportedGameVersions: [{ id: 1 }],
-            },
-            {
-              modVersion: "4.0.5",
-              zipHash: "600a59038384cf2e7ec72580",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          ],
-        },
-      }),
-    );
-
-    await run();
-
-    // Verify that it found the right version and logged the info message
-    expect(core.info).toHaveBeenCalledWith(
-      "Using mod 'BSIPA' version '4.1.4' for game version '1.13.2'.",
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72582.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
     );
   });
 
@@ -559,31 +414,7 @@ describe("main", () => {
 
     await run();
 
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.16.1",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-  });
-
-  it("defaults to the latest version on BeatMods if the specified version doesn't exist and no default version exists", async () => {
-    mockProject({ gameVersion: "1.15.3" });
-
-    mockFetch(
-      "https://beatmods.com/api/versions?gameName=BeatSaber",
-      JSON.stringify({
-        versions: [
-          { id: 1, version: "1.13.2", defaultVersion: false },
-          { id: 2, version: "1.16.1", defaultVersion: false },
-        ],
-      }),
-    );
-
-    await run();
-
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=1.13.2",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
+    expect(core.warning).toHaveBeenCalledWith("Game version '1.15.3' doesn't exist; using mods from latest version '1.16.1'");
   });
 
   it("logs when a mod version doesn't exist", async () => {

@@ -46661,39 +46661,30 @@ async function run() {
         gameVersion = gameVersions.find((v) => v.defaultVersion) || gameVersions[0];
         warning(`Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${gameVersion.version}'`);
     }
-    info(`Fetching mods for game version '${gameVersion.version}'`);
-    const mods = (await fetchJson(`https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=${gameVersion.version}`)).mods;
-    const allMods = (await fetchJson(`https://beatmods.com/api/mods?gameName=BeatSaber&status=all`)).mods;
+    info(`Fetching mods`);
+    const mods = (await fetchJson(`https://beatmods.com/api/mods?gameName=BeatSaber&status=all`)).mods;
     const depAliases = JSON.parse(getInput("aliases", { required: true }));
     const additionalDependencies = JSON.parse(getInput("additional-dependencies", { required: true }));
     for (const [depName, depVersion] of Object.entries({
         ...projectInfo.dependencies,
         ...additionalDependencies,
     })) {
-        let mod = mods.find((m) => m.mod.name === depName || m.mod.name == depAliases[depName]);
+        const mod = mods.find((m) => m.mod.name === depName || m.mod.name == depAliases[depName]);
         if (!mod) {
-            mod = allMods.find((m) => m.mod.name === depName || m.mod.name == depAliases[depName]);
-            if (!mod) {
-                warning(`Mod '${depName}' does not exist.`);
-                continue;
-            }
+            warning(`Mod '${depName}' does not exist.`);
+            continue;
         }
         let version = mod.latest;
-        if (!semver.satisfies(version.modVersion, depVersion)) {
-            const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(b.modVersion, a.modVersion)) ?? [];
-            version = versions.find((v) => semver.satisfies(v.modVersion, depVersion) &&
-                v.supportedGameVersions.map((v) => v.id).includes(gameVersion.id));
+        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(b.modVersion, a.modVersion)) ?? [];
+        version = versions.find((v) => semver.satisfies(v.modVersion, depVersion) &&
+            v.supportedGameVersions.map((v) => v.id).includes(gameVersion.id));
+        if (!version) {
+            version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
             if (!version) {
-                version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
-                if (!version) {
-                    warning(`No version of mod '${depName}' found that satisfies '${depVersion}'.`);
-                    continue;
-                }
-                warning(`No version of mod '${depName}' found for game version '${gameVersion.version}'. Using mod version match '${version.modVersion}'.`);
+                warning(`No version of mod '${depName}' found that satisfies '${depVersion}'.`);
+                continue;
             }
-            else {
-                info(`Using mod '${depName}' version '${version.modVersion}' for game version '${gameVersion.version}'.`);
-            }
+            warning(`No version of mod '${depName}' found for game version '${gameVersion.version}'. Using mod version match '${version.modVersion}'.`);
         }
         else {
             info(`Using mod '${depName}' version '${version.modVersion}' for game version '${gameVersion.version}'.`);

@@ -32,13 +32,8 @@ export async function run() {
     );
   }
 
-  info(`Fetching mods for game version '${gameVersion.version}'`);
+  info(`Fetching mods`);
   const mods = (
-    await fetchJson<ModsResponse>(
-      `https://beatmods.com/api/mods?gameName=BeatSaber&status=all&gameVersion=${gameVersion.version}`,
-    )
-  ).mods;
-  const allMods = (
     await fetchJson<ModsResponse>(
       `https://beatmods.com/api/mods?gameName=BeatSaber&status=all`,
     )
@@ -53,59 +48,47 @@ export async function run() {
     ...projectInfo.dependencies,
     ...additionalDependencies,
   }) as [string, string][]) {
-    let mod = mods.find(
+    const mod = mods.find(
       (m) => m.mod.name === depName || m.mod.name == depAliases[depName],
     );
 
     if (!mod) {
-      mod = allMods.find(
-        (m) => m.mod.name === depName || m.mod.name == depAliases[depName],
-      );
-
-      if (!mod) {
-        warning(`Mod '${depName}' does not exist.`);
-        continue;
-      }
+      warning(`Mod '${depName}' does not exist.`);
+      continue;
     }
 
     let version: ModVersion | undefined = mod.latest;
 
-    if (!semver.satisfies(version.modVersion, depVersion)) {
-      const versions =
-        (
-          await fetchJson<ModResponse>(
-            `https://beatmods.com/api/mods/${mod.mod.id}`,
-          )
-        )?.mod?.versions?.sort((a, b) =>
-          semver.compare(b.modVersion, a.modVersion),
-        ) ?? [];
+    const versions =
+      (
+        await fetchJson<ModResponse>(
+          `https://beatmods.com/api/mods/${mod.mod.id}`,
+        )
+      )?.mod?.versions?.sort((a, b) =>
+        semver.compare(b.modVersion, a.modVersion),
+      ) ?? [];
 
-      version = versions.find(
-        (v) =>
-          semver.satisfies(v.modVersion, depVersion) &&
-          v.supportedGameVersions.map((v) => v.id).includes(gameVersion.id),
+    version = versions.find(
+      (v) =>
+        semver.satisfies(v.modVersion, depVersion) &&
+        v.supportedGameVersions.map((v) => v.id).includes(gameVersion.id),
+    );
+
+    if (!version) {
+      version = versions.find((v) =>
+        semver.satisfies(v.modVersion, depVersion),
       );
 
       if (!version) {
-        version = versions.find((v) =>
-          semver.satisfies(v.modVersion, depVersion),
-        );
-
-        if (!version) {
-          warning(
-            `No version of mod '${depName}' found that satisfies '${depVersion}'.`,
-          );
-          continue;
-        }
-
         warning(
-          `No version of mod '${depName}' found for game version '${gameVersion.version}'. Using mod version match '${version.modVersion}'.`,
+          `No version of mod '${depName}' found that satisfies '${depVersion}'.`,
         );
-      } else {
-        info(
-          `Using mod '${depName}' version '${version.modVersion}' for game version '${gameVersion.version}'.`,
-        );
+        continue;
       }
+
+      warning(
+        `No version of mod '${depName}' found for game version '${gameVersion.version}'. Using mod version match '${version.modVersion}'.`,
+      );
     } else {
       info(
         `Using mod '${depName}' version '${version.modVersion}' for game version '${gameVersion.version}'.`,
