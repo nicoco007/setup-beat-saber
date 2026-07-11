@@ -171,11 +171,6 @@ async function downloadReferenceAssemblies(
     "X-GitHub-Api-Version": "2022-11-28",
   };
 
-  const accessToken = getInput("access-token", { required: false });
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
-
   info(`Downloading reference assemblies for version '${version}'`);
   const response = await fetch(url, { method: "GET", headers });
 

@@ -60,10 +60,6 @@ function setInput(name: string, value: string) {
   process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] = value;
 }
 
-function deleteInput(name: string) {
-  delete process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`];
-}
-
 function mockFetch(url: string, body: u.BodyInit | undefined, status = 200) {
   when(fetch)
     .calledWith(url, { headers: { "User-Agent": "setup-beat-saber" } })
@@ -79,7 +75,6 @@ function mockFetch(url: string, body: u.BodyInit | undefined, status = 200) {
 
 function mockGitHubApiResponse(
   response: u.Response | undefined = undefined,
-  accessToken: string = "github_pat_whatever",
 ) {
   response ||= new u.Response(
     fs.createReadStream(
@@ -96,10 +91,6 @@ function mockGitHubApiResponse(
     "User-Agent": "setup-beat-saber",
     "X-GitHub-Api-Version": "2022-11-28",
   };
-
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
 
   when(fetch)
     .calledWith(
@@ -200,7 +191,6 @@ describe("main", () => {
 
   beforeEach(() => {
     setInput("path", path.join(__dirname, "BeatSaberReferenceAssemblies"));
-    setInput("access-token", "github_pat_whatever");
     setInput("project-path", path.join(__dirname, "Project", "Project.csproj"));
     setInput("project-configuration", "Release");
     setInput("aliases", "{}");
@@ -524,29 +514,6 @@ describe("main", () => {
     mockProcess("dotnet", expect.anything(), undefined, "Uh oh!", 1);
 
     await expect(run()).rejects.toThrow("Uh oh!");
-  });
-
-  it("doesn't explode if access token isn't specified", async () => {
-    deleteInput("access-token");
-    mockGitHubApiResponse(undefined, "");
-
-    await run();
-
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-    expect(
-      fs.existsSync(
-        path.join(
-          __dirname,
-          "BeatSaberReferenceAssemblies",
-          "Beat Saber_Data",
-          "Managed",
-          "Main.dll",
-        ),
-      ),
-    ).toBe(true);
   });
 
   it("uses aliases to find mods when dependency name is aliased", async () => {

@@ -39495,10 +39495,6 @@ async function downloadReferenceAssemblies(version, extractPath) {
         "User-Agent": "setup-beat-saber",
         "X-GitHub-Api-Version": "2022-11-28",
     };
-    const accessToken = getInput("access-token", { required: false });
-    if (accessToken) {
-        headers.Authorization = `Bearer ${accessToken}`;
-    }
     info(`Downloading reference assemblies for version '${version}'`);
     const response = await (0,undici/* fetch */.hd)(url, { method: "GET", headers });
     if (response.status != 200) {

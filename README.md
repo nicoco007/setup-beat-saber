@@ -9,7 +9,6 @@ Manifest is expected to be UTF-8 encoded.
 - name: Set up Beat Saber
   uses: nicoco007/setup-beat-saber@main
   with:
-    access-token: github_pat_whatever
     # (Optional) manifest location
     manifest: ${{github.workspace}}/manifest.json
     # (Optional) extract location
