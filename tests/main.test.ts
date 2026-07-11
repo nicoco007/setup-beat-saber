@@ -2,7 +2,7 @@ import { jest } from "@jest/globals";
 import { fileURLToPath } from "url";
 import * as process from "process";
 import * as path from "path";
-import * as nf from "node-fetch";
+import * as u from "undici";
 import * as ac from "@actions/core";
 import * as child_process from "child_process";
 import fs from "fs-extra";
@@ -22,10 +22,10 @@ const readFileSync = jest.fn();
 const writeFileSync = jest.fn();
 const copySync = jest.fn();
 
-jest.unstable_mockModule("node-fetch", () => ({
-  ...nf,
+jest.unstable_mockModule("undici", () => ({
+  ...u,
   __esModule: true,
-  default: fetch,
+  fetch,
 }));
 
 jest.unstable_mockModule("@actions/core", () => ({
@@ -64,13 +64,13 @@ function deleteInput(name: string) {
   delete process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`];
 }
 
-function mockFetch(url: string, body: nf.BodyInit | undefined, status = 200) {
+function mockFetch(url: string, body: u.BodyInit | undefined, status = 200) {
   when(fetch)
     .calledWith(url, { headers: { "User-Agent": "setup-beat-saber" } })
     .mockReturnValue(
-      new nf.Response(body, {
+      new u.Response(body, {
         status: status,
-        headers: new nf.Headers({
+        headers: new u.Headers({
           "Content-Type": "application/json",
         }),
       }),
@@ -78,16 +78,16 @@ function mockFetch(url: string, body: nf.BodyInit | undefined, status = 200) {
 }
 
 function mockGitHubApiResponse(
-  response: nf.Response | undefined = undefined,
+  response: u.Response | undefined = undefined,
   accessToken: string = "github_pat_whatever",
 ) {
-  response ||= new nf.Response(
+  response ||= new u.Response(
     fs.createReadStream(
       path.join(__dirname, "files", "beat-saber-reference-assemblies.zip"),
     ),
     {
       status: 200,
-      headers: new nf.Headers({ "Content-Type": "application/octet-stream" }),
+      headers: new u.Headers({ "Content-Type": "application/octet-stream" }),
     },
   );
 
@@ -116,7 +116,7 @@ function mockGitHubApiResponse(
     .mockImplementation(() => response);
 }
 
-function mockDownloadResponse(response: nf.Response | undefined = undefined) {
+function mockDownloadResponse(response: u.Response | undefined = undefined) {
   when(fetch)
     .calledWith(
       expect.stringMatching(new RegExp("https://beatmods.com/cdn/mod/.*")),
@@ -125,11 +125,11 @@ function mockDownloadResponse(response: nf.Response | undefined = undefined) {
     .mockImplementation(
       () =>
         response ||
-        new nf.Response(
+        new u.Response(
           fs.createReadStream(path.join(__dirname, "files", "dummy.zip")),
           {
             status: 200,
-            headers: new nf.Headers({
+            headers: new u.Headers({
               "Content-Type": "application/octet-stream",
             }),
           },
@@ -335,7 +335,7 @@ describe("main", () => {
 
   it("throws if reference assemblies response isn't successful", async () => {
     mockGitHubApiResponse(
-      new nf.Response(null, { status: 401, statusText: "Unauthorized" }),
+      new u.Response(null, { status: 401, statusText: "Unauthorized" }),
     );
 
     await expect(run()).rejects.toThrow(
@@ -504,7 +504,7 @@ describe("main", () => {
 
   it("rejects if mod download response isn't successful", async () => {
     mockDownloadResponse(
-      new nf.Response(null, { status: 401, statusText: "Unauthorized" }),
+      new u.Response(null, { status: 401, statusText: "Unauthorized" }),
     );
 
     await expect(run()).rejects.toThrow(

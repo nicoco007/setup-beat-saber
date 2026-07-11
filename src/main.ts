@@ -1,5 +1,5 @@
 import { getInput, info, warning } from "@actions/core";
-import fetch from "node-fetch";
+import { fetch } from "undici";
 import * as semver from "semver";
 import { unzip } from "fflate";
 import fs from "fs-extra";
