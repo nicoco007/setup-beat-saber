@@ -366,13 +366,13 @@ describe("main", () => {
     await run();
 
     expect(core.warning).toHaveBeenCalledWith(
-      "'BSIPA' v4.1.3 does not support 1.16.1.",
+      "BSIPA 4.1.3 does not support Beat Saber 1.16.1.",
     );
     expect(core.warning).toHaveBeenCalledWith(
-      "'BS Utils' v1.7.0 does not support 1.16.1.",
+      "BS Utils 1.7.0 does not support Beat Saber 1.16.1.",
     );
     expect(core.warning).toHaveBeenCalledWith(
-      "'SongCore' v3.1.0 does not support 1.16.1.",
+      "SongCore 3.1.0 does not support Beat Saber 1.16.1.",
     );
     expect(fetch).toHaveBeenCalledWith(
       "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
@@ -441,7 +441,7 @@ describe("main", () => {
     await run();
 
     expect(core.warning).toHaveBeenCalledWith(
-      "'BSIPA' v4.1.3 does not support 1.13.2.",
+      "BSIPA 4.1.3 does not support Beat Saber 1.13.2.",
     );
 
     expect(fetch).toHaveBeenCalledWith(
@@ -470,7 +470,7 @@ describe("main", () => {
     await run();
 
     expect(core.warning).toHaveBeenCalledWith(
-      "'BSIPA' v4.1.6 does not support 1.13.2.",
+      "BSIPA 4.1.6 does not support Beat Saber 1.13.2.",
     );
   });
 
@@ -480,7 +480,7 @@ describe("main", () => {
     await run();
 
     expect(core.warning).toHaveBeenCalledWith(
-      "No version of mod 'BSIPA' found that satisfies '4.1.5'.",
+      "No version of BSIPA found that satisfies '4.1.5'.",
     );
   });
 

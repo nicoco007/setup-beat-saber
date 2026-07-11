@@ -47028,13 +47028,13 @@ async function run() {
                 supportsPriorGameVersion(gameVersion, a)) ?? [];
         const version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
         if (!version) {
-            warning(`No version of mod '${depName}' found that satisfies '${depVersion}'.`);
+            warning(`No version of ${depName} found that satisfies '${depVersion}'.`);
             continue;
         }
         if (!version.supportedGameVersions.find((v) => v.id == gameVersion.id)) {
-            warning(`'${depName}' v${version.modVersion} does not support ${gameVersion.version}.`);
+            warning(`${depName} ${version.modVersion} does not support Beat Saber ${gameVersion.version}.`);
         }
-        info(`Downloading mod '${depName}' version '${version.modVersion}'`);
+        info(`Downloading ${depName} ${version.modVersion}`);
         await downloadAndExtract(`https://beatmods.com/cdn/mod/${version.zipHash}.zip`, extractPath);
         // special case since BSIPA moves files when installed with IPA.exe
         if (depName === "BSIPA") {

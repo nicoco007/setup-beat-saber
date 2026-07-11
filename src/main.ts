@@ -76,19 +76,17 @@ export async function run() {
     );
 
     if (!version) {
-      warning(
-        `No version of mod '${depName}' found that satisfies '${depVersion}'.`,
-      );
+      warning(`No version of ${depName} found that satisfies '${depVersion}'.`);
       continue;
     }
 
     if (!version.supportedGameVersions.find((v) => v.id == gameVersion.id)) {
       warning(
-        `'${depName}' v${version.modVersion} does not support ${gameVersion.version}.`,
+        `${depName} ${version.modVersion} does not support Beat Saber ${gameVersion.version}.`,
       );
     }
 
-    info(`Downloading mod '${depName}' version '${version.modVersion}'`);
+    info(`Downloading ${depName} ${version.modVersion}`);
     await downloadAndExtract(
       `https://beatmods.com/cdn/mod/${version.zipHash}.zip`,
       extractPath,
