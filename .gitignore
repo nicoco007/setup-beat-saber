@@ -3,3 +3,5 @@ node_modules
 /dist/package.json
 /dist/*.index.js*
 /coverage
+/dist/src
+/dist/tests
