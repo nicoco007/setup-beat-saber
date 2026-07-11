@@ -196,6 +196,7 @@ function mockProject({
 
 describe("main", () => {
   const env = { ...process.env };
+  const github_env_file = "github_env.txt";
 
   beforeEach(() => {
     setInput("path", path.join(__dirname, "BeatSaberReferenceAssemblies"));
@@ -205,7 +206,7 @@ describe("main", () => {
     setInput("aliases", "{}");
     setInput("additional-dependencies", "{}");
 
-    process.env["GITHUB_ENV"] = "github_env.txt";
+    process.env["GITHUB_ENV"] = github_env_file;
     process.env["GITHUB_SHA"] = "4ef156d43d79b5b63b421f7e867ff67d57ee42d8";
 
     mockGitHubApiResponse();
@@ -588,7 +589,7 @@ describe("main", () => {
 
     const extractPath = path.join(__dirname, "BeatSaberReferenceAssemblies");
     expect(appendFileSync).toHaveBeenCalledWith(
-      "github_env.txt",
+      github_env_file,
       `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`,
       "utf8",
     );
@@ -612,6 +613,10 @@ describe("main", () => {
   afterEach(() => {
     fs.rmSync(path.join(__dirname, "BeatSaberReferenceAssemblies"), {
       recursive: true,
+      force: true,
+    });
+
+    fs.rmSync(path.join(__dirname, github_env_file), {
       force: true,
     });
 
