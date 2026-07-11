@@ -57,8 +57,6 @@ export async function run() {
       continue;
     }
 
-    let version: ModVersion | undefined = mod.latest;
-
     const versions =
       (
         await fetchJson<ModResponse>(
@@ -73,7 +71,9 @@ export async function run() {
             supportsPriorGameVersion(gameVersion, a),
       ) ?? [];
 
-    version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
+    const version = versions.find((v) =>
+      semver.satisfies(v.modVersion, depVersion),
+    );
 
     if (!version) {
       warning(

@@ -47021,13 +47021,12 @@ async function run() {
             warning(`Mod '${depName}' does not exist.`);
             continue;
         }
-        let version = mod.latest;
         const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(a.modVersion, b.modVersion) ||
             supportsGameVersion(gameVersion, b) -
                 supportsGameVersion(gameVersion, a) ||
             supportsPriorGameVersion(gameVersion, b) -
                 supportsPriorGameVersion(gameVersion, a)) ?? [];
-        version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
+        const version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
         if (!version) {
             warning(`No version of mod '${depName}' found that satisfies '${depVersion}'.`);
             continue;
