@@ -12,7 +12,8 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "newLine": "lf"
+    "newLine": "lf",
+    "types": ["node", "jest"], // TODO: this should only include jest for tests
   },
   "exclude": ["./dist", "./node_modules", "./coverage"]
 }

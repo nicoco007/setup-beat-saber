@@ -8,7 +8,8 @@
     "format:write": "prettier --write **/*.ts",
     "format:check": "prettier --check **/*.ts",
     "lint": "npx eslint .",
-    "test": "node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js tests/"
+    "test": "node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js tests/",
+    "typecheck": "tsc"
   },
   "repository": {
     "type": "git",
