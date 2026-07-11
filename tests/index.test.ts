@@ -15,11 +15,13 @@ jest.unstable_mockModule("@actions/core", () => ({
 
 describe("index", () => {
   it("calls run when imported", async () => {
-    runMock.mockReturnValue(Promise.reject(new Error("oh no")));
+    const error = new Error("oh no");
+
+    runMock.mockReturnValue(Promise.reject(error));
 
     await import("../src/index.js");
 
     expect(runMock).toHaveBeenCalled();
-    expect(setFailedMock).toHaveBeenCalledWith("oh no");
+    expect(setFailedMock).toHaveBeenCalledWith("Error: oh no");
   });
 });

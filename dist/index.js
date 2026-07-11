@@ -39572,5 +39572,5 @@ async function getProjectInfo(projectPath, configuration) {
 ;// CONCATENATED MODULE: ./src/index.ts
 
 
-run().catch((error) => setFailed(error.message));
+run().catch((reason) => setFailed(String(reason)));
 
