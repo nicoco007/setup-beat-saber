@@ -92,7 +92,7 @@ function mockGitHubApiResponse(
   );
 
   const headers: Record<string, string> = {
-    Accept: "application/vnd.github+json",
+    "Accept": "application/vnd.github+json",
     "User-Agent": "setup-beat-saber",
     "X-GitHub-Api-Version": "2022-11-28",
   };
@@ -124,8 +124,8 @@ function mockDownloadResponse(response: u.Response | undefined = undefined) {
     )
     .mockImplementation(
       () =>
-        response ||
-        new u.Response(
+        response
+        || new u.Response(
           fs.createReadStream(path.join(__dirname, "files", "dummy.zip")),
           {
             status: 200,
@@ -144,9 +144,9 @@ function mockProcess(
   stderr: string | undefined = undefined,
   exitCode: number = 0,
 ) {
-  const proc = <child_process.ChildProcessWithoutNullStreams>new EventEmitter();
-  proc.stdout = <Readable>new EventEmitter();
-  proc.stderr = <Readable>new EventEmitter();
+  const proc = <child_process.ChildProcessWithoutNullStreams> new EventEmitter();
+  proc.stdout = <Readable> new EventEmitter();
+  proc.stderr = <Readable> new EventEmitter();
 
   when(childProcessSpawn)
     .calledWith(path, args)
@@ -172,9 +172,9 @@ function mockProcess(
 function mockProject({
   gameVersion = "1.13.2",
   dependsOn = {
-    BSIPA: "^4.1.3",
+    "BSIPA": "^4.1.3",
     "BS Utils": "^1.6.3",
-    SongCore: "^3.0.2",
+    "SongCore": "^3.0.2",
   },
 }: { gameVersion?: string; dependsOn?: { [key: string]: string } } = {}) {
   mockProcess(
@@ -565,7 +565,7 @@ describe("main", () => {
     mockProject({ dependsOn: { BSIPA: "^4.1.3" } });
     setInput(
       "additional-dependencies",
-      JSON.stringify({ "BS Utils": "^1.6.0", SongCore: "^3.0.0" }),
+      JSON.stringify({ "BS Utils": "^1.6.0", "SongCore": "^3.0.0" }),
     );
 
     await run();

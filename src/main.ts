@@ -23,19 +23,19 @@ export async function run() {
   const extractPath = getInput("path", { required: true });
   await downloadReferenceAssemblies(wantedGameVersion, extractPath);
 
-  let gameVersion = gameVersions.find((gv) => gv.version === wantedGameVersion);
+  let gameVersion = gameVersions.find(gv => gv.version === wantedGameVersion);
 
   if (gameVersion == null) {
-    gameVersion = gameVersions.find((v) => v.defaultVersion) || gameVersions[0];
+    gameVersion = gameVersions.find(v => v.defaultVersion) || gameVersions[0];
     warning(
       `Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${gameVersion.version}'`,
     );
   }
 
-  info(`Fetching mods`);
+  info("Fetching mods");
   const mods = (
     await fetchJson<ModsResponse>(
-      `https://beatmods.com/api/mods?gameName=BeatSaber&status=all`,
+      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all",
     )
   ).mods;
 
@@ -49,7 +49,7 @@ export async function run() {
     ...additionalDependencies,
   }) as [string, string][]) {
     const mod = mods.find(
-      (m) => m.mod.name === depName || m.mod.name == depAliases[depName],
+      m => m.mod.name === depName || m.mod.name == depAliases[depName],
     );
 
     if (!mod) {
@@ -57,21 +57,19 @@ export async function run() {
       continue;
     }
 
-    const versions =
-      (
+    const versions
+      = (
         await fetchJson<ModResponse>(
           `https://beatmods.com/api/mods/${mod.mod.id}`,
         )
       )?.mod?.versions?.sort(
         (a, b) =>
-          semver.compare(a.modVersion, b.modVersion) ||
-          supportsGameVersion(gameVersion, b) -
-            supportsGameVersion(gameVersion, a) ||
-          supportsPriorGameVersion(gameVersion, b) -
-            supportsPriorGameVersion(gameVersion, a),
+          semver.compare(a.modVersion, b.modVersion)
+          || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
+          || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a),
       ) ?? [];
 
-    const version = versions.find((v) =>
+    const version = versions.find(v =>
       semver.satisfies(v.modVersion, depVersion),
     );
 
@@ -80,7 +78,7 @@ export async function run() {
       continue;
     }
 
-    if (!version.supportedGameVersions.find((v) => v.id == gameVersion.id)) {
+    if (!version.supportedGameVersions.find(v => v.id == gameVersion.id)) {
       warning(
         `${depName} ${version.modVersion} does not support Beat Saber ${gameVersion.version}.`,
       );
@@ -119,7 +117,7 @@ function supportsGameVersion(
   gameVersion: Version,
   modVersion: ModVersion,
 ): number {
-  return modVersion.supportedGameVersions.find((gv) => gv.id == gameVersion.id)
+  return modVersion.supportedGameVersions.find(gv => gv.id == gameVersion.id)
     ? 1
     : 0;
 }
@@ -129,7 +127,7 @@ function supportsPriorGameVersion(
   modVersion: ModVersion,
 ): number {
   return modVersion.supportedGameVersions.find(
-    (gv) => gv.version <= gameVersion.version,
+    gv => gv.version <= gameVersion.version,
   )
     ? 1
     : 0;
@@ -168,7 +166,7 @@ async function downloadReferenceAssemblies(
 ) {
   const url = `https://api.github.com/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v${version}`;
   const headers: Record<string, string> = {
-    Accept: "application/vnd.github+json",
+    "Accept": "application/vnd.github+json",
     "User-Agent": "setup-beat-saber",
     "X-GitHub-Api-Version": "2022-11-28",
   };

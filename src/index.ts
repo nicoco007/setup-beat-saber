@@ -1,4 +1,4 @@
 import { setFailed } from "@actions/core";
 import { run } from "./main.js";
 
-run().catch((reason) => setFailed(String(reason)));
+run().catch(reason => setFailed(String(reason)));

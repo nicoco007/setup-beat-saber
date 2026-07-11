@@ -39415,35 +39415,33 @@ async function run() {
     const gameVersions = (await fetchJson("https://beatmods.com/api/versions?gameName=BeatSaber")).versions;
     const extractPath = getInput("path", { required: true });
     await downloadReferenceAssemblies(wantedGameVersion, extractPath);
-    let gameVersion = gameVersions.find((gv) => gv.version === wantedGameVersion);
+    let gameVersion = gameVersions.find(gv => gv.version === wantedGameVersion);
     if (gameVersion == null) {
-        gameVersion = gameVersions.find((v) => v.defaultVersion) || gameVersions[0];
+        gameVersion = gameVersions.find(v => v.defaultVersion) || gameVersions[0];
         warning(`Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${gameVersion.version}'`);
     }
-    info(`Fetching mods`);
-    const mods = (await fetchJson(`https://beatmods.com/api/mods?gameName=BeatSaber&status=all`)).mods;
+    info("Fetching mods");
+    const mods = (await fetchJson("https://beatmods.com/api/mods?gameName=BeatSaber&status=all")).mods;
     const depAliases = JSON.parse(getInput("aliases", { required: true }));
     const additionalDependencies = JSON.parse(getInput("additional-dependencies", { required: true }));
     for (const [depName, depVersion] of Object.entries({
         ...projectInfo.dependencies,
         ...additionalDependencies,
     })) {
-        const mod = mods.find((m) => m.mod.name === depName || m.mod.name == depAliases[depName]);
+        const mod = mods.find(m => m.mod.name === depName || m.mod.name == depAliases[depName]);
         if (!mod) {
             warning(`Mod '${depName}' does not exist.`);
             continue;
         }
-        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(a.modVersion, b.modVersion) ||
-            supportsGameVersion(gameVersion, b) -
-                supportsGameVersion(gameVersion, a) ||
-            supportsPriorGameVersion(gameVersion, b) -
-                supportsPriorGameVersion(gameVersion, a)) ?? [];
-        const version = versions.find((v) => semver.satisfies(v.modVersion, depVersion));
+        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(a.modVersion, b.modVersion)
+            || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
+            || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a)) ?? [];
+        const version = versions.find(v => semver.satisfies(v.modVersion, depVersion));
         if (!version) {
             warning(`No version of ${depName} found that satisfies '${depVersion}'.`);
             continue;
         }
-        if (!version.supportedGameVersions.find((v) => v.id == gameVersion.id)) {
+        if (!version.supportedGameVersions.find(v => v.id == gameVersion.id)) {
             warning(`${depName} ${version.modVersion} does not support Beat Saber ${gameVersion.version}.`);
         }
         info(`Downloading ${depName} ${version.modVersion}`);
@@ -39459,12 +39457,12 @@ async function run() {
     lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`, "utf8");
 }
 function supportsGameVersion(gameVersion, modVersion) {
-    return modVersion.supportedGameVersions.find((gv) => gv.id == gameVersion.id)
+    return modVersion.supportedGameVersions.find(gv => gv.id == gameVersion.id)
         ? 1
         : 0;
 }
 function supportsPriorGameVersion(gameVersion, modVersion) {
-    return modVersion.supportedGameVersions.find((gv) => gv.version <= gameVersion.version)
+    return modVersion.supportedGameVersions.find(gv => gv.version <= gameVersion.version)
         ? 1
         : 0;
 }
@@ -39493,7 +39491,7 @@ async function downloadAndExtract(url, extractPath) {
 async function downloadReferenceAssemblies(version, extractPath) {
     const url = `https://api.github.com/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v${version}`;
     const headers = {
-        Accept: "application/vnd.github+json",
+        "Accept": "application/vnd.github+json",
         "User-Agent": "setup-beat-saber",
         "X-GitHub-Api-Version": "2022-11-28",
     };
@@ -39572,5 +39570,5 @@ async function getProjectInfo(projectPath, configuration) {
 ;// CONCATENATED MODULE: ./src/index.ts
 
 
-run().catch((reason) => setFailed(String(reason)));
+run().catch(reason => setFailed(String(reason)));
 
