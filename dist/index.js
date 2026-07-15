@@ -39470,14 +39470,17 @@ async function fetchJson(url) {
     const response = await (0,undici/* fetch */.hd)(url, {
         headers: { "User-Agent": "setup-beat-saber" },
     });
+    if (!response.ok) {
+        throw new Error(`Request '${url}' failed: ${response.status} ${response.statusText}`);
+    }
     return (await response.json());
 }
 async function downloadAndExtract(url, extractPath) {
     const response = await (0,undici/* fetch */.hd)(url, {
         headers: { "User-Agent": "setup-beat-saber" },
     });
-    if (response.status != 200) {
-        throw new Error(`Unexpected response status ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+        throw new Error(`Request '${url}' failed: ${response.status} ${response.statusText}`);
     }
     const files = await unzipAsync(Buffer.from(await response.arrayBuffer()));
     for (const [filePath, data] of Object.entries(files)) {
@@ -39497,8 +39500,8 @@ async function downloadReferenceAssemblies(version, extractPath) {
     };
     info(`Downloading reference assemblies for version '${version}'`);
     const response = await (0,undici/* fetch */.hd)(url, { method: "GET", headers });
-    if (response.status != 200) {
-        throw new Error(`Unexpected response status ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+        throw new Error(`Request '${url}' failed: ${response.status} ${response.statusText}`);
     }
     const files = await unzipAsync(Buffer.from(await response.arrayBuffer()));
     for (const [filePath, data] of Object.entries(files)) {
@@ -39557,7 +39560,7 @@ async function getProjectInfo(projectPath, configuration) {
                 }
             }
             else {
-                reject(new Error(stderr.trim()));
+                reject(new Error(`dotnet returned exit code ${code}. Output:\n${stdout.trim()}\nError\n${stderr.trim()}`));
             }
         });
     });

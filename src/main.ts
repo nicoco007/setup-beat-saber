@@ -135,6 +135,13 @@ async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, {
     headers: { "User-Agent": "setup-beat-saber" },
   });
+
+  if (!response.ok) {
+    throw new Error(
+      `Request '${url}' failed: ${response.status} ${response.statusText}`,
+    );
+  }
+
   return (await response.json()) as T;
 }
 
@@ -143,9 +150,9 @@ async function downloadAndExtract(url: string, extractPath: string) {
     headers: { "User-Agent": "setup-beat-saber" },
   });
 
-  if (response.status != 200) {
+  if (!response.ok) {
     throw new Error(
-      `Unexpected response status ${response.status} ${response.statusText}`,
+      `Request '${url}' failed: ${response.status} ${response.statusText}`,
     );
   }
 
@@ -172,9 +179,9 @@ async function downloadReferenceAssemblies(
   info(`Downloading reference assemblies for version '${version}'`);
   const response = await fetch(url, { method: "GET", headers });
 
-  if (response.status != 200) {
+  if (!response.ok) {
     throw new Error(
-      `Unexpected response status ${response.status} ${response.statusText}`,
+      `Request '${url}' failed: ${response.status} ${response.statusText}`,
     );
   }
 
@@ -243,7 +250,7 @@ async function getProjectInfo(
           reject(err);
         }
       } else {
-        reject(new Error(stderr.trim()));
+        reject(new Error(`dotnet returned exit code ${code}. Output:\n${stdout.trim()}\nError\n${stderr.trim()}`));
       }
     });
   });
