@@ -13,7 +13,7 @@
     "strict": true,
     "skipLibCheck": true,
     "newLine": "lf",
-    "types": ["node", "jest"], // TODO: this should only include jest for tests
+    "types": ["node"]
   },
   "exclude": ["./dist", "./node_modules", "./coverage"]
 }
