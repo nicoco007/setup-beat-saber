@@ -1,147 +1,41 @@
-import { jest } from "@jest/globals";
-import { fileURLToPath } from "url";
-import * as process from "process";
-import * as path from "path";
-import * as u from "undici";
-import * as ac from "@actions/core";
+import assert from "assert/strict";
+import { afterEach, before, beforeEach, describe, it, mock } from "node:test";
 import * as child_process from "child_process";
-import fs from "fs-extra";
 import { EventEmitter } from "events";
 import { Readable } from "stream";
-import { when } from "jest-when";
+import sinon from "sinon";
+import path from "path";
+import { fileURLToPath } from "url";
+
+import undici from "undici";
+import { readFile, rm } from "fs/promises";
+import { existsSync } from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fetch = jest.fn().mockImplementation((url, params) => {
-  throw new Error(
-    `Unexpected web request to ${url} with ${JSON.stringify(params)}`,
-  );
-});
-const childProcessSpawn = jest.fn();
-const appendFileSync = jest.fn();
-const readFileSync = jest.fn();
-const writeFileSync = jest.fn();
-const copySync = jest.fn();
+const childProcessSpawn = sinon.stub();
+const infoMock = sinon.stub();
+const warningMock = sinon.stub();
 
-jest.unstable_mockModule("undici", () => ({
-  ...u,
-  __esModule: true,
-  fetch,
-}));
-
-jest.unstable_mockModule("@actions/core", () => ({
-  ...ac,
-  __esModule: true,
-  info: jest.fn(),
-  warning: jest.fn(),
-  error: jest.fn(),
-}));
-
-jest.unstable_mockModule("child_process", () => ({
-  ...child_process,
-  __esModule: true,
-  spawn: childProcessSpawn,
-}));
-
-jest.unstable_mockModule("fs-extra", () => ({
-  __esModule: true,
-  default: {
-    ...fs,
-    appendFileSync: appendFileSync,
-    readFileSync: readFileSync,
-    writeFileSync: writeFileSync,
-    copySync: copySync,
-  },
-}));
-
-const { run } = await import("../src/main.js");
-const core = await import("@actions/core");
-
-function setInput(name: string, value: string) {
-  process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] = value;
+function assertFileExists(path: string): void {
+  if (!existsSync(path)) {
+    throw new assert.AssertionError({ message: `File '${path}' does not exist` });
+  }
 }
 
-function mockFetch(url: string, body: u.BodyInit | undefined, status = 200) {
-  when(fetch)
-    .calledWith(url, { headers: { "User-Agent": "setup-beat-saber" } })
-    .mockReturnValue(
-      new u.Response(body, {
-        status: status,
-        headers: new u.Headers({
-          "Content-Type": "application/json",
-        }),
-      }),
-    );
-}
-
-function mockGitHubApiResponse(
-  response: u.Response | undefined = undefined,
-) {
-  response ||= new u.Response(
-    fs.createReadStream(
-      path.join(__dirname, "files", "beat-saber-reference-assemblies.zip"),
-    ),
-    {
-      status: 200,
-      headers: new u.Headers({ "Content-Type": "application/octet-stream" }),
-    },
-  );
-
-  const headers: Record<string, string> = {
-    "Accept": "application/vnd.github+json",
-    "User-Agent": "setup-beat-saber",
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
-
-  when(fetch)
-    .calledWith(
-      expect.stringMatching(
-        new RegExp(
-          "https://api.github.com/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v.*",
-        ),
-      ),
-      {
-        method: "GET",
-        headers: headers,
-      },
-    )
-    .mockImplementation(() => response);
-}
-
-function mockDownloadResponse(response: u.Response | undefined = undefined) {
-  when(fetch)
-    .calledWith(
-      expect.stringMatching(new RegExp("https://beatmods.com/cdn/mod/.*")),
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    )
-    .mockImplementation(
-      () =>
-        response
-        || new u.Response(
-          fs.createReadStream(path.join(__dirname, "files", "dummy.zip")),
-          {
-            status: 200,
-            headers: new u.Headers({
-              "Content-Type": "application/octet-stream",
-            }),
-          },
-        ),
-    );
-}
-
-function mockProcess(
+export function mockProcess(
   path: string,
-  args: string[] = expect.anything(),
+  args: string[] | sinon.SinonMatcher = sinon.match.any,
   stdout: string | undefined = undefined,
   stderr: string | undefined = undefined,
   exitCode: number = 0,
 ) {
-  const proc = <child_process.ChildProcessWithoutNullStreams> new EventEmitter();
-  proc.stdout = <Readable> new EventEmitter();
-  proc.stderr = <Readable> new EventEmitter();
+  const proc = new EventEmitter() as child_process.ChildProcessWithoutNullStreams;
+  proc.stdout = new EventEmitter() as Readable;
+  proc.stderr = new EventEmitter() as Readable;
 
-  when(childProcessSpawn)
-    .calledWith(path, args)
-    .mockImplementation(() => {
+  childProcessSpawn
+    .withArgs(path, args)
+    .callsFake(() => {
       process.nextTick(() => {
         if (stdout) {
           proc.stdout.emit("data", stdout);
@@ -165,12 +59,11 @@ function mockProject({
   dependsOn = {
     "BSIPA": "^4.1.3",
     "BS Utils": "^1.6.3",
-    "SongCore": "^3.0.2",
   },
 }: { gameVersion?: string; dependsOn?: { [key: string]: string } } = {}) {
   mockProcess(
     "dotnet",
-    expect.anything(),
+    sinon.match.any,
     JSON.stringify({
       Properties: {
         GameVersion: gameVersion,
@@ -185,409 +78,396 @@ function mockProject({
   );
 }
 
+function setInput(name: string, value: string) {
+  process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] = value;
+}
+
 describe("main", () => {
   const env = { ...process.env };
-  const github_env_file = "github_env.txt";
 
-  beforeEach(() => {
+  const GITHUB_ENV_FILE = "github_env.txt";
+
+  const BEATMODS_HEADERS = {
+    "User-Agent": "setup-beat-saber",
+  };
+
+  const GITHUB_HEADERS = {
+    "Accept": "application/vnd.github+json",
+    "User-Agent": "setup-beat-saber",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+
+  let run: () => Promise<void>;
+  let agent: undici.MockAgent;
+  let beatmods: undici.Interceptable;
+  let github: undici.Interceptable;
+
+  before(async () => {
+    mock.module("child_process", {
+      namedExports: {
+        ...await import("child_process"),
+        spawn: childProcessSpawn,
+      },
+    });
+
+    mock.module("@actions/core", {
+      namedExports: {
+        ...await import("@actions/core"),
+        info: infoMock,
+        warning: warningMock,
+      },
+    });
+
+    ({ run } = await import("../src/main.js"));
+  });
+
+  beforeEach(async () => {
     setInput("path", path.join(__dirname, "BeatSaberReferenceAssemblies"));
     setInput("project-path", path.join(__dirname, "Project", "Project.csproj"));
     setInput("project-configuration", "Release");
     setInput("aliases", "{}");
     setInput("additional-dependencies", "{}");
 
-    process.env["GITHUB_ENV"] = github_env_file;
+    process.env["GITHUB_ENV"] = path.join(__dirname, GITHUB_ENV_FILE);
     process.env["GITHUB_SHA"] = "4ef156d43d79b5b63b421f7e867ff67d57ee42d8";
 
-    mockGitHubApiResponse();
-    mockDownloadResponse();
+    agent = new undici.MockAgent({ enableCallHistory: true });
+    agent.disableNetConnect();
+    undici.setGlobalDispatcher(agent);
+
+    beatmods = agent.get("https://beatmods.com");
+    github = agent.get("https://api.github.com");
+  });
+
+  async function mockRequests() {
+    mockVersionsRequest();
+    mockModsRequest();
+    await mockModsRequests();
+    await mockDownloadRequests();
+    await mockGitHubRequest();
+  }
+
+  function mockVersionsRequest() {
+    beatmods.intercept({ method: "GET", path: "/api/versions?gameName=BeatSaber", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
+      versions: [
+        { id: 1, version: "1.13.2", defaultVersion: true },
+        { id: 2, version: "1.16.1", defaultVersion: false },
+        { id: 3, version: "1.13.1", defaultVersion: false },
+        { id: 4, version: "1.13.3", defaultVersion: false },
+      ],
+    }));
+  }
+
+  function mockModsRequest() {
+    beatmods.intercept({ method: "GET", path: "/api/mods?gameName=BeatSaber&status=all", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
+      mods: [
+        {
+          mod: { id: 1, name: "BSIPA" },
+          latest: {
+            modVersion: "4.1.6",
+            zipHash: "226190d94b21d1b0c7b1a42d855e419d",
+            supportedGameVersions: [{ id: 2 }],
+          },
+        },
+        {
+          mod: { id: 2, name: "BS Utils" },
+          latest: {
+            modVersion: "1.10.0",
+            zipHash: "12199c32158fe94fda292d083dba4ef3",
+            supportedGameVersions: [{ id: 2 }],
+          },
+        },
+      ],
+    }));
+  }
+
+  async function mockModsRequests() {
+    beatmods.intercept({ method: "GET", path: "/api/mods/1", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
+      mod: {
+        versions: [
+          {
+            modVersion: "4.1.6",
+            zipHash: "226190d94b21d1b0c7b1a42d855e419d",
+            supportedGameVersions: [{ id: 2, version: "1.16.1" }],
+          },
+          {
+            modVersion: "4.1.4",
+            zipHash: "500a1dd3280db2d7df7292ec1fe7c4db",
+            supportedGameVersions: [{ id: 1, version: "1.13.2" }],
+          },
+          {
+            modVersion: "4.1.3",
+            zipHash: "6cdb042c016ac1e9d2a3ffb29a1e8fb3",
+            supportedGameVersions: [{ id: 1, version: "1.13.2" }],
+          },
+        ],
+      },
+    }));
+
+    beatmods.intercept({ method: "GET", path: "/api/mods/2", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
+      mod: {
+        versions: [
+          {
+            modVersion: "1.10.0",
+            zipHash: "bc78cac4d7d680eeb96b751d3562bec4",
+            supportedGameVersions: [{ id: 2, version: "1.16.1" }],
+          },
+          {
+            modVersion: "1.7.0",
+            zipHash: "43bb529b2a618e003faa949a7018fc63",
+            supportedGameVersions: [{ id: 1, version: "1.13.2" }],
+          },
+          {
+            modVersion: "1.6.0+1.16.2",
+            zipHash: "3ca1bef2d413e1c63ef0c927e16b218b",
+            supportedGameVersions: [{ id: 2, version: "1.16.1" }],
+          },
+          {
+            modVersion: "1.6.0+1.13.2",
+            zipHash: "a30692ebeedf94d180619f9c48f977dd",
+            supportedGameVersions: [{ id: 1, version: "1.13.2" }],
+          },
+          {
+            modVersion: "1.5.0+1.13.3",
+            zipHash: "3dd7c2f56e14a30082209d908b6517cb",
+            supportedGameVersions: [{ id: 4, version: "1.13.3" }],
+          },
+          {
+            modVersion: "1.5.0+1.13.1",
+            zipHash: "6b0ab2ac6993f9c26ee9b9aa957e3ef0",
+            supportedGameVersions: [{ id: 3, version: "1.13.1" }],
+          },
+        ],
+      },
+    }));
+  }
+
+  async function mockDownloadRequests() {
+    await mockDownloadRequest("6cdb042c016ac1e9d2a3ffb29a1e8fb3", "dummy.zip");
+    await mockDownloadRequest("43bb529b2a618e003faa949a7018fc63", "dummy1.zip");
+  }
+
+  async function mockDownloadRequest(hash: string, file: string) {
+    beatmods.intercept({ method: "GET", path: `/cdn/mod/${hash}.zip`, headers: BEATMODS_HEADERS }).reply(200, await readFile(path.join(__dirname, "files", file)));
+  }
+
+  async function mockGitHubRequest(version: string = "1.13.2") {
+    github.intercept({ method: "GET", path: `/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v${version}`, headers: GITHUB_HEADERS }).reply(200, await readFile(
+      path.join(__dirname, "files", "beat-saber-reference-assemblies.zip"),
+    ));
+  }
+
+  it("extracts game assemblies and mods to the specified path", async () => {
+    mockProject();
+    await mockRequests();
+
+    await run();
+
+    agent.assertNoPendingInterceptors();
+
+    assert.deepStrictEqual(infoMock.getCalls().map(v => v.args), [
+      ["Downloading reference assemblies for version '1.13.2'"],
+      ["Fetching mods"],
+      ["Downloading BSIPA 4.1.3"],
+      ["Downloading BS Utils 1.7.0"],
+    ]);
+
+    assert.deepStrictEqual(warningMock.getCalls().map(v => v.args), []);
+
+    assertFileExists(path.join(__dirname, "BeatSaberReferenceAssemblies", "IPA", "Data", "Data.txt"));
+    assertFileExists(path.join(__dirname, "BeatSaberReferenceAssemblies", "IPA", "Libs", "Libs.txt"));
+    assertFileExists(path.join(__dirname, "BeatSaberReferenceAssemblies", "Libs", "Libs.txt"));
+    assertFileExists(path.join(__dirname, "BeatSaberReferenceAssemblies", "Beat Saber_Data", "Managed", "Main.dll"));
+    assertFileExists(path.join(__dirname, "BeatSaberReferenceAssemblies", "Beat Saber_Data", "Data.txt"));
+    assertFileExists(path.join(__dirname, "BeatSaberReferenceAssemblies", "Plugins", "BS Utils.txt"));
+
+    assert.equal(
+      "BeatSaberDir=C:\\Users\\Nicolas\\Source\\Repos\\setup-beat-saber\\tests\\BeatSaberReferenceAssemblies\n"
+      + "GameDirectory=C:\\Users\\Nicolas\\Source\\Repos\\setup-beat-saber\\tests\\BeatSaberReferenceAssemblies\n",
+      (await readFile(path.join(__dirname, GITHUB_ENV_FILE))).toString());
+  });
+
+  it("warns if game version doesn't exist on BeatMods and uses default version on BeatMods", async () => {
+    mockProject({ gameVersion: "1.2.3" });
+    mockVersionsRequest();
+    mockModsRequest();
+    await mockDownloadRequests();
+    await mockModsRequests();
+    await mockGitHubRequest("1.2.3");
+
+    await run();
+
+    agent.assertNoPendingInterceptors();
+
+    assert.deepStrictEqual(warningMock.getCalls().map(v => v.args), [
+      ["Game version '1.2.3' doesn't exist; using mods from latest version '1.13.2'"],
+    ]);
+  });
+
+  it("warns if mod doesn't exist", async () => {
+    mockProject({ dependsOn: { "BSIPA": "^4.1.3", "BS Utils": "^1.6.3", "Foo": "^1.2.3" } });
+    await mockRequests();
+
+    await run();
+
+    agent.assertNoPendingInterceptors();
+
+    assert.deepStrictEqual(warningMock.getCalls().map(v => v.args), [
+      ["Mod 'Foo' does not exist."],
+    ]);
+  });
+
+  it("warns if mod version can't be found", async () => {
+    mockProject({ dependsOn: { "BSIPA": "^3.0.0", "BS Utils": "^1.6.3" } });
+    mockVersionsRequest();
+    mockModsRequest();
+    await mockModsRequests();
+    await mockGitHubRequest();
+
+    await mockDownloadRequest("43bb529b2a618e003faa949a7018fc63", "dummy1.zip");
+
+    await run();
+
+    agent.assertNoPendingInterceptors();
+
+    assert.deepStrictEqual(warningMock.getCalls().map(v => v.args), [
+      ["No version of BSIPA found that satisfies '^3.0.0'."],
+    ]);
+  });
+
+  it("warns if mod doesn't support game version", async () => {
+    mockProject({ gameVersion: "1.16.1" });
+
+    mockVersionsRequest();
+    mockModsRequest();
+    await mockModsRequests();
+    await mockDownloadRequests();
+    await mockGitHubRequest("1.16.1");
+
+    await run();
+
+    agent.assertNoPendingInterceptors();
+
+    assert.deepStrictEqual(warningMock.getCalls().map(v => v.args), [
+      ["BSIPA 4.1.3 does not support Beat Saber 1.16.1."],
+      ["BS Utils 1.7.0 does not support Beat Saber 1.16.1."],
+    ]);
+  });
+
+  it("finds the most compatible version if multiple uploads share the same base version", async () => {
+    mockProject({ dependsOn: { "BSIPA": "^4.1.3", "BS Utils": "1.6.0" } });
+
+    mockVersionsRequest();
+    mockModsRequest();
+    mockModsRequests();
+    await mockGitHubRequest();
+    await mockDownloadRequest("6cdb042c016ac1e9d2a3ffb29a1e8fb3", "dummy.zip");
+    await mockDownloadRequest("a30692ebeedf94d180619f9c48f977dd", "dummy1.zip");
+
+    await run();
+
+    agent.assertNoPendingInterceptors();
+    assert.deepStrictEqual(warningMock.getCalls().map(v => v.args), []);
+  });
+
+  it("finds the most compatible version if multiple uploads share the same base version and no version supports the specified game version", async () => {
+    mockProject({ dependsOn: { "BSIPA": "^4.1.3", "BS Utils": "1.5.0" } });
+
+    mockVersionsRequest();
+    mockModsRequest();
+    await mockModsRequests();
+    await mockGitHubRequest();
+    await mockDownloadRequest("6cdb042c016ac1e9d2a3ffb29a1e8fb3", "dummy.zip");
+    await mockDownloadRequest("6b0ab2ac6993f9c26ee9b9aa957e3ef0", "dummy1.zip");
+
+    await run();
+
+    agent.assertNoPendingInterceptors();
+  });
+
+  it("rejects if a BeatMods request fails", async () => {
     mockProject();
 
-    mockFetch(
-      "https://beatmods.com/api/versions?gameName=BeatSaber",
-      JSON.stringify({
-        versions: [
-          { id: 1, version: "1.13.2", defaultVersion: false },
-          { id: 2, version: "1.16.1", defaultVersion: true },
-        ],
-      }),
-    );
-    mockFetch(
-      "https://beatmods.com/api/mods?gameName=BeatSaber&status=all",
-      JSON.stringify({
-        mods: [
-          {
-            mod: { id: 1, name: "BSIPA" },
-            latest: {
-              modVersion: "4.1.6",
-              zipHash: "60b14ea32d008b3daa41e8e0",
-              supportedGameVersions: [{ id: 2 }],
-            },
-          },
-          {
-            mod: { id: 2, name: "BS Utils" },
-            latest: {
-              modVersion: "1.10.0",
-              zipHash: "60b15a4b2d008b3daa41e900",
-              supportedGameVersions: [{ id: 2 }],
-            },
-          },
-          {
-            mod: { id: 3, name: "SongCore" },
-            latest: {
-              modVersion: "3.5.0",
-              zipHash: "60cbfebfaf1e3d4577e0366e",
-              supportedGameVersions: [{ id: 2 }],
-            },
-          },
-        ],
-      }),
-    );
-    mockFetch(
-      "https://beatmods.com/api/mods/1",
-      JSON.stringify({
-        mod: {
-          versions: [
-            {
-              modVersion: "4.1.6",
-              zipHash: "60b14ea32d008b3daa41e8e0",
-              supportedGameVersions: [{ id: 2 }],
-            },
-            {
-              modVersion: "4.1.4",
-              zipHash: "600a59038384cf2e7ec72582",
-              supportedGameVersions: [{ id: 1 }],
-            },
-            {
-              modVersion: "4.1.3",
-              zipHash: "600a59038384cf2e7ec72581",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          ],
-        },
-      }),
-    );
-    mockFetch(
-      "https://beatmods.com/api/mods/2",
-      JSON.stringify({
-        mod: {
-          versions: [
-            {
-              modVersion: "1.10.0",
-              zipHash: "60b15a4b2d008b3daa41e900",
-              supportedGameVersions: [{ id: 2 }],
-            },
-            {
-              modVersion: "1.7.0",
-              zipHash: "600a65978384cf2e7ec725a9",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          ],
-        },
-      }),
-    );
-    mockFetch(
-      "https://beatmods.com/api/mods/3",
-      JSON.stringify({
-        mod: {
-          versions: [
-            {
-              modVersion: "3.5.0",
-              zipHash: "60cbfebfaf1e3d4577e0366e",
-              supportedGameVersions: [{ id: 2 }],
-            },
-            {
-              modVersion: "3.1.0",
-              zipHash: "6015b97e0eef816aa6d0c18a",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          ],
-        },
-      }),
-    );
+    beatmods.intercept({ method: "GET", path: "/api/versions?gameName=BeatSaber", headers: BEATMODS_HEADERS }).reply(500);
+
+    await assert.rejects(async () => await run(), new Error("Request 'https://beatmods.com/api/versions?gameName=BeatSaber' failed: 500 Internal Server Error"));
+
+    agent.assertNoPendingInterceptors();
   });
 
-  it("downloads reference assemblies", async () => {
-    await run();
+  it("rejects if a GitHub request fails", async () => {
+    mockProject();
 
-    expect(
-      fs.existsSync(
-        path.join(
-          __dirname,
-          "BeatSaberReferenceAssemblies",
-          "Beat Saber_Data",
-          "Managed",
-          "Main.dll",
-        ),
-      ),
-    ).toBe(true);
+    beatmods.intercept({ method: "GET", path: "/api/versions?gameName=BeatSaber", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
+      versions: [
+        { id: 1, version: "1.13.2", defaultVersion: true },
+        { id: 2, version: "1.16.1", defaultVersion: false },
+        { id: 3, version: "1.13.1", defaultVersion: false },
+        { id: 4, version: "1.13.3", defaultVersion: false },
+      ],
+    }));
+
+    github
+      .intercept({ method: "GET", path: "/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v1.13.2", headers: GITHUB_HEADERS })
+      .reply(500);
+
+    await assert.rejects(async () => await run(), new Error("Request 'https://api.github.com/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v1.13.2' failed: 500 Internal Server Error"));
+
+    agent.assertNoPendingInterceptors();
   });
 
-  it("throws if reference assemblies response isn't successful", async () => {
-    mockGitHubApiResponse(
-      new u.Response(null, { status: 401, statusText: "Unauthorized" }),
-    );
+  it("rejects if a download request fails", async () => {
+    mockProject();
 
-    await expect(run()).rejects.toThrow(
-      "Unexpected response status 401 Unauthorized",
-    );
+    mockVersionsRequest();
+    mockModsRequest();
+    await mockModsRequests();
+    await mockGitHubRequest();
+
+    await mockDownloadRequest("6cdb042c016ac1e9d2a3ffb29a1e8fb3", "dummy.zip");
+    beatmods.intercept({ method: "GET", path: "/cdn/mod/43bb529b2a618e003faa949a7018fc63.zip", headers: BEATMODS_HEADERS }).reply(500);
+
+    await assert.rejects(async () => await run(), new Error("Request 'https://beatmods.com/cdn/mod/43bb529b2a618e003faa949a7018fc63.zip' failed: 500 Internal Server Error"));
+
+    agent.assertNoPendingInterceptors();
   });
 
-  it("downloads all mods listed in manifest", async () => {
-    await run();
+  it("reject if dotnet output cannot be parsed", async () => {
+    mockProcess(
+      "dotnet",
+      sinon.match.any,
+      "garbled",
+    );
 
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a65978384cf2e7ec725a9.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/6015b97e0eef816aa6d0c18a.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
+    await assert.rejects(async () => await run(), new SyntaxError("Unexpected token 'g', \"garbled\" is not valid JSON"));
+
+    agent.assertNoPendingInterceptors();
   });
 
-  it("uses the action's game-version if specified", async () => {
-    setInput("game-version", "1.16.1");
+  it("reject if dotnet does not return exit code 0", async () => {
+    mockProcess(
+      "dotnet",
+      sinon.match.any,
+      "output",
+      "uh oh",
+      -1,
+    );
+    await assert.rejects(async () => await run(), new Error("dotnet returned exit code -1. Output:\noutput\nError\nuh oh"));
 
-    await run();
-
-    expect(core.warning).toHaveBeenCalledWith(
-      "BSIPA 4.1.3 does not support Beat Saber 1.16.1.",
-    );
-    expect(core.warning).toHaveBeenCalledWith(
-      "BS Utils 1.7.0 does not support Beat Saber 1.16.1.",
-    );
-    expect(core.warning).toHaveBeenCalledWith(
-      "SongCore 3.1.0 does not support Beat Saber 1.16.1.",
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a65978384cf2e7ec725a9.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/6015b97e0eef816aa6d0c18a.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
+    agent.assertNoPendingInterceptors();
   });
 
-  it("uses version that supports specified game version if multiple mod versions have the same version", async () => {
-    mockFetch(
-      "https://beatmods.com/api/mods/1",
-      JSON.stringify({
-        mod: {
-          versions: [
-            {
-              modVersion: "4.1.3",
-              zipHash: "600a59038384cf2e7ec72583",
-              supportedGameVersions: [{ id: 2 }],
-            },
-            {
-              modVersion: "4.1.3",
-              zipHash: "600a59038384cf2e7ec72581",
-              supportedGameVersions: [{ id: 1 }],
-            },
-          ],
-        },
-      }),
-    );
-
-    await run();
-
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-  });
-
-  it("uses version that supports a prior game version if multiple mod versions have the same version", async () => {
-    mockFetch(
-      "https://beatmods.com/api/mods/1",
-      JSON.stringify({
-        mod: {
-          versions: [
-            {
-              modVersion: "4.1.3",
-              zipHash: "600a59038384cf2e7ec72583",
-              supportedGameVersions: [{ id: 4, version: "1.16.2" }],
-            },
-            {
-              modVersion: "4.1.3",
-              zipHash: "600a59038384cf2e7ec72581",
-              supportedGameVersions: [{ id: 3, version: "1.13.2" }],
-            },
-          ],
-        },
-      }),
-    );
-
-    await run();
-
-    expect(core.warning).toHaveBeenCalledWith(
-      "BSIPA 4.1.3 does not support Beat Saber 1.13.2.",
-    );
-
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-  });
-
-  it("uses matching mod version if latest does not match version range", async () => {
-    mockProject({ dependsOn: { BSIPA: "4.1.3" } });
-
-    await run();
-
-    expect(fetch).toHaveBeenCalledWith("https://beatmods.com/api/mods/1", {
-      headers: { "User-Agent": "setup-beat-saber" },
-    });
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-  });
-
-  it("warns when matching mod version if latest does not match version range and found version is not on game version", async () => {
-    mockProject({ dependsOn: { BSIPA: "4.1.6" } });
-
-    await run();
-
-    expect(core.warning).toHaveBeenCalledWith(
-      "BSIPA 4.1.6 does not support Beat Saber 1.13.2.",
-    );
-  });
-
-  it("fails if no mod version matches the specified range", async () => {
-    mockProject({ dependsOn: { BSIPA: "4.1.5" } });
-
-    await run();
-
-    expect(core.warning).toHaveBeenCalledWith(
-      "No version of BSIPA found that satisfies '4.1.5'.",
-    );
-  });
-
-  it("defaults to the default version on BeatMods if the specified version doesn't exist", async () => {
-    mockProject({ gameVersion: "1.15.3" });
-
-    await run();
-
-    expect(core.warning).toHaveBeenCalledWith(
-      "Game version '1.15.3' doesn't exist; using mods from latest version '1.16.1'",
-    );
-  });
-
-  it("logs when a mod version doesn't exist", async () => {
-    mockProject({ dependsOn: { Dummy: "^4.1.0" } });
-
-    await run();
-
-    expect(core.warning).toHaveBeenCalledWith("Mod 'Dummy' does not exist.");
-  });
-
-  it("rejects if mod download response isn't successful", async () => {
-    mockDownloadResponse(
-      new u.Response(null, { status: 401, statusText: "Unauthorized" }),
-    );
-
-    await expect(run()).rejects.toThrow(
-      "Unexpected response status 401 Unauthorized",
-    );
-  });
-
-  it("rejects if project info can't be parsed", async () => {
-    mockProcess("dotnet", expect.anything(), "blah");
-
-    await expect(run()).rejects.toThrow(
-      "Unexpected token 'b', \"blah\" is not valid JSON",
-    );
-  });
-
-  it("rejects if project info can't be retrieved", async () => {
-    mockProcess("dotnet", expect.anything(), undefined, "Uh oh!", 1);
-
-    await expect(run()).rejects.toThrow("Uh oh!");
-  });
-
-  it("uses aliases to find mods when dependency name is aliased", async () => {
-    mockProject({ dependsOn: { "Beat Saber Utils": "^1.6.0" } });
-    setInput("aliases", JSON.stringify({ "Beat Saber Utils": "BS Utils" }));
-
-    await run();
-
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a65978384cf2e7ec725a9.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-  });
-
-  it("downloads additional dependencies specified in the action input", async () => {
-    mockProject({ dependsOn: { BSIPA: "^4.1.3" } });
-    setInput(
-      "additional-dependencies",
-      JSON.stringify({ "BS Utils": "^1.6.0", "SongCore": "^3.0.0" }),
-    );
-
-    await run();
-
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a59038384cf2e7ec72581.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/600a65978384cf2e7ec725a9.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "https://beatmods.com/cdn/mod/6015b97e0eef816aa6d0c18a.zip",
-      { headers: { "User-Agent": "setup-beat-saber" } },
-    );
-  });
-
-  it("writes environment variables to GITHUB_ENV", async () => {
-    await run();
-
-    const extractPath = path.join(__dirname, "BeatSaberReferenceAssemblies");
-    expect(appendFileSync).toHaveBeenCalledWith(
-      github_env_file,
-      `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`,
-      "utf8",
-    );
-  });
-
-  it("copies BSIPA files from IPA directory to root directories", async () => {
-    await run();
-
-    const extractPath = path.join(__dirname, "BeatSaberReferenceAssemblies");
-    expect(copySync).toHaveBeenCalledWith(
-      path.join(extractPath, "IPA", "Libs"),
-      path.join(extractPath, "Libs"),
-      { overwrite: true },
-    );
-    expect(copySync).toHaveBeenCalledWith(
-      path.join(extractPath, "IPA", "Data"),
-      path.join(extractPath, "Beat Saber_Data"),
-    );
-  });
-
-  afterEach(() => {
-    fs.rmSync(path.join(__dirname, "BeatSaberReferenceAssemblies"), {
+  afterEach(async () => {
+    await rm(path.join(__dirname, "BeatSaberReferenceAssemblies"), {
       recursive: true,
       force: true,
     });
 
-    fs.rmSync(path.join(__dirname, github_env_file), {
+    await rm(path.join(__dirname, GITHUB_ENV_FILE), {
       force: true,
     });
 
-    jest.resetAllMocks();
+    sinon.reset();
 
     for (const key in process.env) {
       const val = env[key];
