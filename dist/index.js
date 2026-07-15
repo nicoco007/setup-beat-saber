@@ -39433,10 +39433,10 @@ async function run() {
             warning(`Mod '${depName}' does not exist.`);
             continue;
         }
-        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions?.sort((a, b) => semver.compare(a.modVersion, b.modVersion)
+        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions ?? [];
+        const version = versions.filter(v => semver.satisfies(v.modVersion, depVersion)).sort((a, b) => semver.compare(a.modVersion, b.modVersion)
             || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
-            || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a)) ?? [];
-        const version = versions.find(v => semver.satisfies(v.modVersion, depVersion));
+            || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a))[0];
         if (!version) {
             warning(`No version of ${depName} found that satisfies '${depVersion}'.`);
             continue;

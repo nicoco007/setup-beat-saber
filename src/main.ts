@@ -62,16 +62,14 @@ export async function run() {
         await fetchJson<ModResponse>(
           `https://beatmods.com/api/mods/${mod.mod.id}`,
         )
-      )?.mod?.versions?.sort(
-        (a, b) =>
-          semver.compare(a.modVersion, b.modVersion)
-          || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
-          || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a),
-      ) ?? [];
+      )?.mod?.versions ?? [];
 
-    const version = versions.find(v =>
-      semver.satisfies(v.modVersion, depVersion),
-    );
+    const version = versions.filter(v => semver.satisfies(v.modVersion, depVersion)).sort(
+      (a, b) =>
+        semver.compare(a.modVersion, b.modVersion)
+        || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
+        || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a),
+    )[0];
 
     if (!version) {
       warning(`No version of ${depName} found that satisfies '${depVersion}'.`);
