@@ -301,9 +301,7 @@ describe("main", () => {
     agent.assertNoPendingInterceptors();
 
     assert.deepStrictEqual(warningMock.getCalls().map(v => v.args), [
-      ["Game version '1.2.3' doesn't exist; using mods from latest version '1.16.1'"],
-      ["BSIPA 4.1.3 does not support Beat Saber 1.16.1."],
-      ["BS Utils 1.7.0 does not support Beat Saber 1.16.1."],
+      ["Game version '1.2.3' doesn't exist on BeatMods. Skipping game version support checks."],
     ]);
   });
 

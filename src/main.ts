@@ -23,12 +23,11 @@ export async function run() {
   const extractPath = getInput("path", { required: true });
   await downloadReferenceAssemblies(wantedGameVersion, extractPath);
 
-  let gameVersion = gameVersions.find(gv => gv.version === wantedGameVersion);
+  const gameVersion = gameVersions.find(gv => gv.version === wantedGameVersion);
 
-  if (gameVersion == null) {
-    gameVersion = gameVersions[0];
+  if (gameVersion === undefined) {
     warning(
-      `Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${gameVersion.version}'`,
+      `Game version '${wantedGameVersion}' doesn't exist on BeatMods. Skipping game version support checks.`,
     );
   }
 
@@ -68,7 +67,7 @@ export async function run() {
       (a, b) =>
         semver.compare(a.modVersion, b.modVersion)
         || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
-        || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a),
+        || supportsPriorGameVersion(wantedGameVersion, b) - supportsPriorGameVersion(wantedGameVersion, a),
     )[0];
 
     if (!version) {
@@ -76,7 +75,7 @@ export async function run() {
       continue;
     }
 
-    if (!version.supportedGameVersions.find(v => v.id == gameVersion.id)) {
+    if (gameVersion !== undefined && !version.supportedGameVersions.find(v => v.id == gameVersion.id)) {
       warning(
         `${depName} ${version.modVersion} does not support Beat Saber ${gameVersion.version}.`,
       );
@@ -112,20 +111,24 @@ export async function run() {
 }
 
 function supportsGameVersion(
-  gameVersion: Version,
+  gameVersion: Version | undefined,
   modVersion: ModVersion,
 ): number {
+  if (!gameVersion) {
+    return 0;
+  }
+
   return modVersion.supportedGameVersions.find(gv => gv.id == gameVersion.id)
     ? 1
     : 0;
 }
 
 function supportsPriorGameVersion(
-  gameVersion: Version,
+  gameVersion: string,
   modVersion: ModVersion,
 ): number {
   return modVersion.supportedGameVersions.find(
-    gv => gv.version.localeCompare(gameVersion.version, undefined, { numeric: true }) <= 0,
+    gv => gv.version.localeCompare(gameVersion, undefined, { numeric: true }) <= 0,
   )
     ? 1
     : 0;

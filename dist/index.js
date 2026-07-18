@@ -77558,10 +77558,9 @@ async function run() {
     const gameVersions = (await fetchJson("https://beatmods.com/api/versions?gameName=BeatSaber")).versions.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
     const extractPath = getInput("path", { required: true });
     await downloadReferenceAssemblies(wantedGameVersion, extractPath);
-    let gameVersion = gameVersions.find(gv => gv.version === wantedGameVersion);
-    if (gameVersion == null) {
-        gameVersion = gameVersions[0];
-        warning(`Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${gameVersion.version}'`);
+    const gameVersion = gameVersions.find(gv => gv.version === wantedGameVersion);
+    if (gameVersion === undefined) {
+        warning(`Game version '${wantedGameVersion}' doesn't exist on BeatMods. Skipping game version support checks.`);
     }
     info("Fetching mods");
     const mods = (await fetchJson("https://beatmods.com/api/mods?gameName=BeatSaber&status=all")).mods;
@@ -77579,12 +77578,12 @@ async function run() {
         const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions ?? [];
         const version = versions.filter(v => semver.satisfies(v.modVersion, depVersion)).sort((a, b) => semver.compare(a.modVersion, b.modVersion)
             || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
-            || supportsPriorGameVersion(gameVersion, b) - supportsPriorGameVersion(gameVersion, a))[0];
+            || supportsPriorGameVersion(wantedGameVersion, b) - supportsPriorGameVersion(wantedGameVersion, a))[0];
         if (!version) {
             warning(`No version of ${depName} found that satisfies '${depVersion}'.`);
             continue;
         }
-        if (!version.supportedGameVersions.find(v => v.id == gameVersion.id)) {
+        if (gameVersion !== undefined && !version.supportedGameVersions.find(v => v.id == gameVersion.id)) {
             warning(`${depName} ${version.modVersion} does not support Beat Saber ${gameVersion.version}.`);
         }
         info(`Downloading ${depName} ${version.modVersion}`);
@@ -77600,12 +77599,15 @@ async function run() {
     lib_default().appendFileSync(process.env["GITHUB_ENV"], `BeatSaberDir=${extractPath}\nGameDirectory=${extractPath}\n`, "utf8");
 }
 function supportsGameVersion(gameVersion, modVersion) {
+    if (!gameVersion) {
+        return 0;
+    }
     return modVersion.supportedGameVersions.find(gv => gv.id == gameVersion.id)
         ? 1
         : 0;
 }
 function supportsPriorGameVersion(gameVersion, modVersion) {
-    return modVersion.supportedGameVersions.find(gv => gv.version.localeCompare(gameVersion.version, undefined, { numeric: true }) <= 0)
+    return modVersion.supportedGameVersions.find(gv => gv.version.localeCompare(gameVersion, undefined, { numeric: true }) <= 0)
         ? 1
         : 0;
 }
