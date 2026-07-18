@@ -18,7 +18,7 @@ export async function run() {
     await fetchJson<VersionsResponse>(
       "https://beatmods.com/api/versions?gameName=BeatSaber",
     )
-  ).versions;
+  ).versions.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
 
   const extractPath = getInput("path", { required: true });
   await downloadReferenceAssemblies(wantedGameVersion, extractPath);
@@ -26,7 +26,7 @@ export async function run() {
   let gameVersion = gameVersions.find(gv => gv.version === wantedGameVersion);
 
   if (gameVersion == null) {
-    gameVersion = gameVersions.find(v => v.defaultVersion) || gameVersions[0];
+    gameVersion = gameVersions[0];
     warning(
       `Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${gameVersion.version}'`,
     );
@@ -125,7 +125,7 @@ function supportsPriorGameVersion(
   modVersion: ModVersion,
 ): number {
   return modVersion.supportedGameVersions.find(
-    gv => gv.version <= gameVersion.version,
+    gv => gv.version.localeCompare(gameVersion.version, undefined, { numeric: true }) <= 0,
   )
     ? 1
     : 0;

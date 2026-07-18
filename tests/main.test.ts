@@ -288,7 +288,7 @@ describe("main", () => {
       (await readFile(path.join(__dirname, GITHUB_ENV_FILE))).toString());
   });
 
-  it("warns if game version doesn't exist on BeatMods and uses default version on BeatMods", async () => {
+  it("warns if game version doesn't exist on BeatMods and uses most recent version on BeatMods", async () => {
     mockProject({ gameVersion: "1.2.3" });
     mockVersionsRequest();
     mockModsRequest();
@@ -301,7 +301,9 @@ describe("main", () => {
     agent.assertNoPendingInterceptors();
 
     assert.deepStrictEqual(warningMock.getCalls().map(v => v.args), [
-      ["Game version '1.2.3' doesn't exist; using mods from latest version '1.13.2'"],
+      ["Game version '1.2.3' doesn't exist; using mods from latest version '1.16.1'"],
+      ["BSIPA 4.1.3 does not support Beat Saber 1.16.1."],
+      ["BS Utils 1.7.0 does not support Beat Saber 1.16.1."],
     ]);
   });
 

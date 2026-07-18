@@ -77555,12 +77555,12 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 async function run() {
     const projectInfo = await getProjectInfo(getInput("project-path", { required: true }), getInput("project-configuration", { required: true }));
     const wantedGameVersion = getInput("game-version") || projectInfo.gameVersion;
-    const gameVersions = (await fetchJson("https://beatmods.com/api/versions?gameName=BeatSaber")).versions;
+    const gameVersions = (await fetchJson("https://beatmods.com/api/versions?gameName=BeatSaber")).versions.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
     const extractPath = getInput("path", { required: true });
     await downloadReferenceAssemblies(wantedGameVersion, extractPath);
     let gameVersion = gameVersions.find(gv => gv.version === wantedGameVersion);
     if (gameVersion == null) {
-        gameVersion = gameVersions.find(v => v.defaultVersion) || gameVersions[0];
+        gameVersion = gameVersions[0];
         warning(`Game version '${wantedGameVersion}' doesn't exist; using mods from latest version '${gameVersion.version}'`);
     }
     info("Fetching mods");
@@ -77605,7 +77605,7 @@ function supportsGameVersion(gameVersion, modVersion) {
         : 0;
 }
 function supportsPriorGameVersion(gameVersion, modVersion) {
-    return modVersion.supportedGameVersions.find(gv => gv.version <= gameVersion.version)
+    return modVersion.supportedGameVersions.find(gv => gv.version.localeCompare(gameVersion.version, undefined, { numeric: true }) <= 0)
         ? 1
         : 0;
 }
