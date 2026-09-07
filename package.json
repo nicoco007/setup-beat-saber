@@ -31,7 +31,7 @@
     "fflate": "^0.8.2",
     "fs-extra": "^11.4.0",
     "semver": "^7.3.8",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "undici": "^8.10.0"
   },
   "devDependencies": {
