@@ -5,3 +5,9 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "next"
+    groups:
+      typescript-eslint:
+        applies-to: version-updates
+        patterns:
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
