@@ -84707,7 +84707,7 @@ var lib_default = /*#__PURE__*/__nccwpck_require__.n(lib);
 async function run() {
     const projectInfo = await getProjectInfo(getInput("project-path", { required: true }), getInput("project-configuration", { required: true }));
     const wantedGameVersion = getInput("game-version") || projectInfo.gameVersion;
-    const gameVersions = (await fetchJson("https://beatmods.com/api/versions?gameName=BeatSaber")).versions.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+    const gameVersions = (await fetchJson("https://beatmods.com/api/v3/games/beatsaber")).gameVersions.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
     const extractPath = getInput("path", { required: true });
     await downloadReferenceAssemblies(wantedGameVersion, extractPath);
     const gameVersion = gameVersions.find(gv => gv.version === wantedGameVersion);
@@ -84715,33 +84715,34 @@ async function run() {
         warning(`Game version '${wantedGameVersion}' doesn't exist on BeatMods. Skipping game version support checks.`);
     }
     info("Fetching mods");
-    const mods = (await fetchJson("https://beatmods.com/api/mods?gameName=BeatSaber&status=all")).mods;
+    const projects = (await fetchJson("https://beatmods.com/api/v3/mods?gameName=beatsaber")).map(m => m.project);
     const depAliases = JSON.parse(getInput("aliases", { required: true }));
     const additionalDependencies = JSON.parse(getInput("additional-dependencies", { required: true }));
-    for (const [depName, depVersion] of Object.entries({
+    for (const [depId, depVersion] of Object.entries({
         ...projectInfo.dependencies,
         ...additionalDependencies,
     })) {
-        const mod = mods.find(m => m.mod.name === depName || m.mod.name == depAliases[depName]);
-        if (!mod) {
-            warning(`Mod '${depName}' does not exist.`);
+        // TODO: breaking change - should only be nameId
+        const project = projects.find(m => m.nameId === depId || m.name === depId || m.name === depAliases[depId]);
+        if (!project) {
+            warning(`Mod '${depId}' does not exist.`);
             continue;
         }
-        const versions = (await fetchJson(`https://beatmods.com/api/mods/${mod.mod.id}`))?.mod?.versions ?? [];
-        const version = versions.filter(v => semver.satisfies(v.modVersion, depVersion)).sort((a, b) => semver.compare(a.modVersion, b.modVersion)
+        const versions = (await fetchJson(`https://beatmods.com/api/v3/mods/${project.id}`))?.versions ?? [];
+        const version = versions.filter(v => semver.satisfies(v.semver, depVersion)).sort((a, b) => semver.compare(a.semver, b.semver)
             || supportsGameVersion(gameVersion, b) - supportsGameVersion(gameVersion, a)
             || supportsPriorGameVersion(wantedGameVersion, b) - supportsPriorGameVersion(wantedGameVersion, a))[0];
         if (!version) {
-            warning(`No version of ${depName} found that satisfies '${depVersion}'.`);
+            warning(`No version of ${depId} found that satisfies '${depVersion}'.`);
             continue;
         }
         if (gameVersion !== undefined && !version.supportedGameVersions.find(v => v.id == gameVersion.id)) {
-            warning(`${depName} ${version.modVersion} does not support Beat Saber ${gameVersion.version}.`);
+            warning(`${depId} ${version.semver} does not support Beat Saber ${gameVersion.version}.`);
         }
-        info(`Downloading ${depName} ${version.modVersion}`);
-        await downloadAndExtract(`https://beatmods.com/cdn/mod/${version.zipHash}.zip`, extractPath);
+        info(`Downloading ${depId} ${version.semver}`);
+        await downloadAndExtract(version.downloadUrl, extractPath);
         // special case since BSIPA moves files when installed with IPA.exe
-        if (depName === "BSIPA") {
+        if (depId === "BSIPA") {
             lib_default().copySync(external_path_.join(extractPath, "IPA", "Libs"), external_path_.join(extractPath, "Libs"), {
                 overwrite: true,
             });

@@ -149,107 +149,103 @@ describe("main", () => {
   }
 
   function mockVersionsRequest() {
-    beatmods.intercept({ method: "GET", path: "/api/versions?gameName=BeatSaber", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
-      versions: [
-        { id: 1, version: "1.13.2", defaultVersion: true },
-        { id: 2, version: "1.16.1", defaultVersion: false },
-        { id: 3, version: "1.13.1", defaultVersion: false },
-        { id: 4, version: "1.13.3", defaultVersion: false },
+    beatmods.intercept({ method: "GET", path: "/api/v3/games/beatsaber", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
+      gameVersions: [
+        { id: 1, gameName: "beatsaber", version: "1.13.2" },
+        { id: 2, gameName: "beatsaber", version: "1.16.1" },
+        { id: 3, gameName: "beatsaber", version: "1.13.1" },
+        { id: 4, gameName: "beatsaber", version: "1.13.3" },
       ],
     }));
   }
 
   function mockModsRequest() {
-    beatmods.intercept({ method: "GET", path: "/api/mods?gameName=BeatSaber&status=all", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
-      mods: [
+    beatmods.intercept({ method: "GET", path: "/api/v3/mods?gameName=beatsaber", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify([
+      {
+        project: { id: 1, name: "BSIPA", nameId: "BSIPA" },
+        version: {
+          semver: "4.1.6",
+          downloadUrl: "https://beatmods.com/files/1/1/BSIPA_universal_v4.1.6.zip",
+          supportedGameVersions: [{ id: 2, gameName: "beatsaber", version: "1.16.1" }],
+        },
+      },
+      {
+        project: { id: 2, name: "BS Utils", nameId: "BS Utils" },
+        version: {
+          semver: "1.10.0",
+          downloadUrl: "https://beatmods.com/files/2/1/BS_Utils_universal_v1.10.0.zip",
+          supportedGameVersions: [{ id: 2, gameName: "beatsaber", version: "1.16.1" }],
+        },
+      },
+    ]));
+  }
+
+  async function mockModsRequests() {
+    beatmods.intercept({ method: "GET", path: "/api/v3/mods/1", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
+      project: {},
+      versions: [
         {
-          mod: { id: 1, name: "BSIPA" },
-          latest: {
-            modVersion: "4.1.6",
-            zipHash: "226190d94b21d1b0c7b1a42d855e419d",
-            supportedGameVersions: [{ id: 2 }],
-          },
+          semver: "4.1.6",
+          downloadUrl: "https://beatmods.com/files/1/1/BSIPA_universal_v4.1.6.zip",
+          supportedGameVersions: [{ id: 2, gameName: "beatsaber", version: "1.16.1" }],
         },
         {
-          mod: { id: 2, name: "BS Utils" },
-          latest: {
-            modVersion: "1.10.0",
-            zipHash: "12199c32158fe94fda292d083dba4ef3",
-            supportedGameVersions: [{ id: 2 }],
-          },
+          semver: "4.1.4",
+          downloadUrl: "https://beatmods.com/files/1/2/BSIPA_universal_v4.1.4.zip",
+          supportedGameVersions: [{ id: 1, gameName: "beatsaber", version: "1.13.2" }],
+        },
+        {
+          semver: "4.1.3",
+          downloadUrl: "https://beatmods.com/files/1/3/BSIPA_universal_v4.1.3.zip",
+          supportedGameVersions: [{ id: 1, gameName: "beatsaber", version: "1.13.2" }],
+        },
+      ],
+    }));
+
+    beatmods.intercept({ method: "GET", path: "/api/v3/mods/2", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
+      project: {},
+      versions: [
+        {
+          semver: "1.10.0",
+          downloadUrl: "https://beatmods.com/files/2/1/BS_Utils_universal_v1.10.0.zip",
+          supportedGameVersions: [{ id: 2, gameName: "beatsaber", version: "1.16.1" }],
+        },
+        {
+          semver: "1.7.0",
+          downloadUrl: "https://beatmods.com/files/2/2/BS_Utils_universal_v1.7.0.zip",
+          supportedGameVersions: [{ id: 1, gameName: "beatsaber", version: "1.13.2" }],
+        },
+        {
+          semver: "1.6.0+1.16.2",
+          downloadUrl: "https://beatmods.com/files/2/3/BS_Utils_universal_v1.6.0+1.16.2.zip",
+          supportedGameVersions: [{ id: 2, gameName: "beatsaber", version: "1.16.1" }],
+        },
+        {
+          semver: "1.6.0+1.13.2",
+          downloadUrl: "https://beatmods.com/files/2/4/BS_Utils_universal_v1.6.0+1.13.2.zip",
+          supportedGameVersions: [{ id: 1, gameName: "beatsaber", version: "1.13.2" }],
+        },
+        {
+          semver: "1.5.0+1.13.3",
+          downloadUrl: "https://beatmods.com/files/2/5/BS_Utils_universal_v1.6.0+1.13.3.zip",
+          supportedGameVersions: [{ id: 4, gameName: "beatsaber", version: "1.13.3" }],
+        },
+        {
+          semver: "1.5.0+1.13.1",
+          downloadUrl: "https://beatmods.com/files/2/6/BS_Utils_universal_v1.6.0+1.13.1.zip",
+          supportedGameVersions: [{ id: 3, gameName: "beatsaber", version: "1.13.1" }],
         },
       ],
     }));
   }
 
-  async function mockModsRequests() {
-    beatmods.intercept({ method: "GET", path: "/api/mods/1", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
-      mod: {
-        versions: [
-          {
-            modVersion: "4.1.6",
-            zipHash: "226190d94b21d1b0c7b1a42d855e419d",
-            supportedGameVersions: [{ id: 2, version: "1.16.1" }],
-          },
-          {
-            modVersion: "4.1.4",
-            zipHash: "500a1dd3280db2d7df7292ec1fe7c4db",
-            supportedGameVersions: [{ id: 1, version: "1.13.2" }],
-          },
-          {
-            modVersion: "4.1.3",
-            zipHash: "6cdb042c016ac1e9d2a3ffb29a1e8fb3",
-            supportedGameVersions: [{ id: 1, version: "1.13.2" }],
-          },
-        ],
-      },
-    }));
-
-    beatmods.intercept({ method: "GET", path: "/api/mods/2", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
-      mod: {
-        versions: [
-          {
-            modVersion: "1.10.0",
-            zipHash: "bc78cac4d7d680eeb96b751d3562bec4",
-            supportedGameVersions: [{ id: 2, version: "1.16.1" }],
-          },
-          {
-            modVersion: "1.7.0",
-            zipHash: "43bb529b2a618e003faa949a7018fc63",
-            supportedGameVersions: [{ id: 1, version: "1.13.2" }],
-          },
-          {
-            modVersion: "1.6.0+1.16.2",
-            zipHash: "3ca1bef2d413e1c63ef0c927e16b218b",
-            supportedGameVersions: [{ id: 2, version: "1.16.1" }],
-          },
-          {
-            modVersion: "1.6.0+1.13.2",
-            zipHash: "a30692ebeedf94d180619f9c48f977dd",
-            supportedGameVersions: [{ id: 1, version: "1.13.2" }],
-          },
-          {
-            modVersion: "1.5.0+1.13.3",
-            zipHash: "3dd7c2f56e14a30082209d908b6517cb",
-            supportedGameVersions: [{ id: 4, version: "1.13.3" }],
-          },
-          {
-            modVersion: "1.5.0+1.13.1",
-            zipHash: "6b0ab2ac6993f9c26ee9b9aa957e3ef0",
-            supportedGameVersions: [{ id: 3, version: "1.13.1" }],
-          },
-        ],
-      },
-    }));
-  }
-
   async function mockDownloadRequests() {
-    await mockDownloadRequest("6cdb042c016ac1e9d2a3ffb29a1e8fb3", "dummy.zip");
-    await mockDownloadRequest("43bb529b2a618e003faa949a7018fc63", "dummy1.zip");
+    await mockDownloadRequest("/1/3/BSIPA_universal_v4.1.3.zip", "dummy.zip");
+    await mockDownloadRequest("/2/2/BS_Utils_universal_v1.7.0.zip", "dummy1.zip");
   }
 
-  async function mockDownloadRequest(hash: string, file: string) {
-    beatmods.intercept({ method: "GET", path: `/cdn/mod/${hash}.zip`, headers: BEATMODS_HEADERS }).reply(200, await readFile(path.join(__dirname, "files", file)));
+  async function mockDownloadRequest(remotePath: string, file: string) {
+    beatmods.intercept({ method: "GET", path: `/files${remotePath}`, headers: BEATMODS_HEADERS }).reply(200, await readFile(path.join(__dirname, "files", file)));
   }
 
   async function mockGitHubRequest(version: string = "1.13.2") {
@@ -325,7 +321,7 @@ describe("main", () => {
     await mockModsRequests();
     await mockGitHubRequest();
 
-    await mockDownloadRequest("43bb529b2a618e003faa949a7018fc63", "dummy1.zip");
+    await mockDownloadRequest("/2/2/BS_Utils_universal_v1.7.0.zip", "dummy1.zip");
 
     await run();
 
@@ -362,8 +358,8 @@ describe("main", () => {
     mockModsRequest();
     mockModsRequests();
     await mockGitHubRequest();
-    await mockDownloadRequest("6cdb042c016ac1e9d2a3ffb29a1e8fb3", "dummy.zip");
-    await mockDownloadRequest("a30692ebeedf94d180619f9c48f977dd", "dummy1.zip");
+    await mockDownloadRequest("/1/3/BSIPA_universal_v4.1.3.zip", "dummy.zip");
+    await mockDownloadRequest("/2/4/BS_Utils_universal_v1.6.0+1.13.2.zip", "dummy1.zip");
 
     await run();
 
@@ -378,8 +374,8 @@ describe("main", () => {
     mockModsRequest();
     await mockModsRequests();
     await mockGitHubRequest();
-    await mockDownloadRequest("6cdb042c016ac1e9d2a3ffb29a1e8fb3", "dummy.zip");
-    await mockDownloadRequest("6b0ab2ac6993f9c26ee9b9aa957e3ef0", "dummy1.zip");
+    await mockDownloadRequest("/1/3/BSIPA_universal_v4.1.3.zip", "dummy.zip");
+    await mockDownloadRequest("/2/6/BS_Utils_universal_v1.6.0+1.13.1.zip", "dummy1.zip");
 
     await run();
 
@@ -389,24 +385,16 @@ describe("main", () => {
   it("rejects if a BeatMods request fails", async () => {
     mockProject();
 
-    beatmods.intercept({ method: "GET", path: "/api/versions?gameName=BeatSaber", headers: BEATMODS_HEADERS }).reply(500);
+    beatmods.intercept({ method: "GET", path: "/api/v3/games/beatsaber", headers: BEATMODS_HEADERS }).reply(500);
 
-    await assert.rejects(async () => await run(), new Error("Request 'https://beatmods.com/api/versions?gameName=BeatSaber' failed: 500 Internal Server Error"));
+    await assert.rejects(async () => await run(), new Error("Request 'https://beatmods.com/api/v3/games/beatsaber' failed: 500 Internal Server Error"));
 
     agent.assertNoPendingInterceptors();
   });
 
   it("rejects if a GitHub request fails", async () => {
     mockProject();
-
-    beatmods.intercept({ method: "GET", path: "/api/versions?gameName=BeatSaber", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify({
-      versions: [
-        { id: 1, version: "1.13.2", defaultVersion: true },
-        { id: 2, version: "1.16.1", defaultVersion: false },
-        { id: 3, version: "1.13.1", defaultVersion: false },
-        { id: 4, version: "1.13.3", defaultVersion: false },
-      ],
-    }));
+    mockVersionsRequest();
 
     github
       .intercept({ method: "GET", path: "/repos/nicoco007/BeatSaberReferenceAssemblies/zipball/refs/tags/v1.13.2", headers: GITHUB_HEADERS })
@@ -425,10 +413,10 @@ describe("main", () => {
     await mockModsRequests();
     await mockGitHubRequest();
 
-    await mockDownloadRequest("6cdb042c016ac1e9d2a3ffb29a1e8fb3", "dummy.zip");
-    beatmods.intercept({ method: "GET", path: "/cdn/mod/43bb529b2a618e003faa949a7018fc63.zip", headers: BEATMODS_HEADERS }).reply(500);
+    await mockDownloadRequest("/1/3/BSIPA_universal_v4.1.3.zip", "dummy.zip");
+    beatmods.intercept({ method: "GET", path: "/files/2/2/BS_Utils_universal_v1.7.0.zip", headers: BEATMODS_HEADERS }).reply(500);
 
-    await assert.rejects(async () => await run(), new Error("Request 'https://beatmods.com/cdn/mod/43bb529b2a618e003faa949a7018fc63.zip' failed: 500 Internal Server Error"));
+    await assert.rejects(async () => await run(), new Error("Request 'https://beatmods.com/files/2/2/BS_Utils_universal_v1.7.0.zip' failed: 500 Internal Server Error"));
 
     agent.assertNoPendingInterceptors();
   });
