@@ -160,7 +160,7 @@ describe("main", () => {
   }
 
   function mockModsRequest() {
-    beatmods.intercept({ method: "GET", path: "/api/v3/mods?gameName=beatsaber", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify([
+    beatmods.intercept({ method: "GET", path: "/api/v3/mods?gameName=beatsaber&status=verified&status=unverified&status=queue&status=testing", headers: BEATMODS_HEADERS }).reply(200, JSON.stringify([
       {
         project: { id: 1, name: "BSIPA", nameId: "BSIPA" },
         version: {

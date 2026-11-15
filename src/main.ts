@@ -34,7 +34,7 @@ export async function run() {
   info("Fetching mods");
   const projects = (
     await fetchJson<ProjectVersionPair[]>(
-      "https://beatmods.com/api/v3/mods?gameName=beatsaber",
+      "https://beatmods.com/api/v3/mods?gameName=beatsaber&status=verified&status=unverified&status=queue&status=testing",
     )
   ).map(m => m.project);
 

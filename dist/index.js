@@ -85678,7 +85678,7 @@ async function run() {
         warning(`Game version '${wantedGameVersion}' doesn't exist on BeatMods. Skipping game version support checks.`);
     }
     info("Fetching mods");
-    const projects = (await fetchJson("https://beatmods.com/api/v3/mods?gameName=beatsaber")).map(m => m.project);
+    const projects = (await fetchJson("https://beatmods.com/api/v3/mods?gameName=beatsaber&status=verified&status=unverified&status=queue&status=testing")).map(m => m.project);
     const depAliases = JSON.parse(getInput("aliases", { required: true }));
     const additionalDependencies = JSON.parse(getInput("additional-dependencies", { required: true }));
     for (const [depId, depVersion] of Object.entries({
