@@ -281,7 +281,8 @@ describe("main", () => {
     assert.equal(
       `BeatSaberDir=${OUTPUT_DIRECTORY}\n`
       + `GameDirectory=${OUTPUT_DIRECTORY}\n`,
-      (await readFile(path.join(__dirname, GITHUB_ENV_FILE))).toString());
+      (await readFile(path.join(__dirname, GITHUB_ENV_FILE))).toString(),
+    );
   });
 
   it("warns if game version doesn't exist on BeatMods and uses most recent version on BeatMods", async () => {
